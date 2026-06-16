@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+streamlit
+requests
+ollama
+faster-whisper
+audio-recorder-streamlit
+torch
+torchaudio
+scipy
+numpy
+python-multipart

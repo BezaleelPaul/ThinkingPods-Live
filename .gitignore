@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Large Models (DO NOT BACKUP)
+*.gguf
+*.bin
+*.pt
+*.pth
+
+# Temporary / Log files
+*.txt
+*.wav
+*.log
+sessions/
+.cache/
+
+# Local settings
+.env
+.claude/
+server_pid.txt
+svr_pid.txt
