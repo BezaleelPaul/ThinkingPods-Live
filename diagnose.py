@@ -26,7 +26,7 @@ if sys.executable.lower() != expected_python.lower():
 else:
     print(f"[OK] Python executable matches run.bat.")
 
-packages = ["streamlit", "fastapi", "uvicorn", "faster_whisper", "ollama", "torch", "torchaudio", "scipy"]
+packages = ["streamlit", "fastapi", "uvicorn", "faster_whisper", "ollama", "torch", "torchaudio", "scipy", "sounddevice", "omegaconf"]
 for pkg in packages:
     check_package(pkg)
 

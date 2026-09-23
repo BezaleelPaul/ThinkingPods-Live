@@ -12,6 +12,13 @@ if platform.system() == "Windows":
 else:
     common["start_new_session"] = True
 
+# Run Dynamic Hardware Profiler & Auto-Tweaker
+try:
+    print("Initializing hardware optimization settings...")
+    subprocess.run([python, "autotweak.py"], cwd=scripts_dir)
+except Exception as e:
+    print(f"Auto-tweak script skipped or encountered error: {e}")
+
 backend = subprocess.Popen([python, "server.py"], **common)
 frontend = subprocess.Popen([python, "-m", "streamlit", "run", "app.py"], **common)
 
@@ -20,9 +27,19 @@ print(f"Frontend → http://localhost:8501")
 print(f"Python: {python}")
 print("Press Ctrl+C to stop both.")
 
+import signal
+
+def cleanup():
+    if backend.poll() is None:
+        backend.terminate()
+    if frontend.poll() is None:
+        frontend.terminate()
+
 try:
     backend.wait()
+    if backend.returncode != 0:
+        print(f"Backend exited with code {backend.returncode}. Stopping frontend.")
+        frontend.terminate()
     frontend.wait()
 except KeyboardInterrupt:
-    backend.terminate()
-    frontend.terminate()
+    cleanup()

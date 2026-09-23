@@ -1,0 +1,339 @@
+{
+  "name": "01_straightforward_full_conversation",
+  "scenario": 1,
+  "description": "Straightforward user. A natural one-fact-per-turn conversation from an empty state through discovery, WRAP_UP, and the Empathize-to-transition lifecycle. Flagship golden path: state mutations, objective progression, checklist coverage, question-family history, final objective, and stage transition are all pinned.",
+  "username": "golden_01",
+  "project_name": "GoldenProject",
+  "seed_state": {},
+  "turns": [
+    {
+      "user": "I want to help elderly people take their medications on time",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [
+          {
+            "operation": "ADD",
+            "field": "personas",
+            "value": "elderly people"
+          }
+        ]
+      },
+      "expect_reply": "That's a clear view of who you're helping. To shape the problem statement precisely, what is the core problem or frustration they're experiencing?",
+      "expect_objective": "PROBLEMS",
+      "expect_family": "PROBLEMS_CORE",
+      "expect_asked_families": [
+        "PROBLEMS_CORE"
+      ],
+      "expect_state": {
+        "evidence": [],
+        "personas": [
+          "elderly people"
+        ],
+        "current_solutions": [],
+        "problems": [],
+        "pain_points": [],
+        "impacts": [],
+        "frequency": null
+      },
+      "expect_checklist": {
+        "target_audience": true,
+        "pain_point": false,
+        "motivation": false,
+        "existing_solution": false,
+        "frequency": false,
+        "evidence": false
+      },
+      "expect_unknown_facts": [],
+      "expect_stage": "Empathize",
+      "expect_reask": false
+    },
+    {
+      "user": "My grandmother always forgets to take her pills",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [
+          {
+            "operation": "ADD",
+            "field": "problems",
+            "value": "forgetting to take medication on time"
+          }
+        ]
+      },
+      "expect_reply": "That's a clear picture of the situation. To understand how urgently this needs solving, how often does the problem occur - daily, weekly, or only in certain situations?",
+      "expect_objective": "FREQUENCY",
+      "expect_family": "FREQUENCY_ESTIMATE",
+      "expect_asked_families": [
+        "PROBLEMS_CORE",
+        "FREQUENCY_ESTIMATE"
+      ],
+      "expect_state": {
+        "evidence": [],
+        "personas": [
+          "elderly people"
+        ],
+        "current_solutions": [],
+        "problems": [
+          "forgetting to take medication on time"
+        ],
+        "pain_points": [],
+        "impacts": [],
+        "frequency": null
+      },
+      "expect_checklist": {
+        "target_audience": true,
+        "pain_point": true,
+        "motivation": false,
+        "existing_solution": false,
+        "frequency": false,
+        "evidence": false
+      },
+      "expect_unknown_facts": [],
+      "expect_stage": "Empathize",
+      "expect_reask": false
+    },
+    {
+      "user": "It happens every single day",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [
+          {
+            "operation": "SET",
+            "field": "frequency",
+            "value": "every single day"
+          }
+        ]
+      },
+      "expect_reply": "That's a real gap you're describing. To see what they currently lean on, how do people handle this problem today - what workarounds or tools do they currently use?",
+      "expect_objective": "CURRENT_SOLUTIONS",
+      "expect_family": "SOLUTIONS_CURRENT",
+      "expect_asked_families": [
+        "PROBLEMS_CORE",
+        "FREQUENCY_ESTIMATE",
+        "SOLUTIONS_CURRENT"
+      ],
+      "expect_state": {
+        "evidence": [],
+        "personas": [
+          "elderly people"
+        ],
+        "current_solutions": [],
+        "problems": [
+          "forgetting to take medication on time"
+        ],
+        "pain_points": [],
+        "impacts": [],
+        "frequency": "every single day"
+      },
+      "expect_checklist": {
+        "target_audience": true,
+        "pain_point": true,
+        "motivation": false,
+        "existing_solution": false,
+        "frequency": true,
+        "evidence": false
+      },
+      "expect_unknown_facts": [],
+      "expect_stage": "Empathize",
+      "expect_reask": false
+    },
+    {
+      "user": "She currently uses a simple pill box",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [
+          {
+            "operation": "ADD",
+            "field": "current_solutions",
+            "value": "a simple pill box"
+          }
+        ]
+      },
+      "expect_reply": "That's a real pain point. To know what hurts most, what frustrates or hurts the most about the problem right now?",
+      "expect_objective": "PAIN_POINTS",
+      "expect_family": "PAIN_FRUSTRATIONS",
+      "expect_asked_families": [
+        "PROBLEMS_CORE",
+        "FREQUENCY_ESTIMATE",
+        "SOLUTIONS_CURRENT",
+        "PAIN_FRUSTRATIONS"
+      ],
+      "expect_state": {
+        "evidence": [],
+        "personas": [
+          "elderly people"
+        ],
+        "current_solutions": [
+          "currently uses a simple pill box"
+        ],
+        "problems": [
+          "forgetting to take medication on time"
+        ],
+        "pain_points": [],
+        "impacts": [],
+        "frequency": "every single day"
+      },
+      "expect_checklist": {
+        "target_audience": true,
+        "pain_point": true,
+        "motivation": false,
+        "existing_solution": true,
+        "frequency": true,
+        "evidence": false
+      },
+      "expect_unknown_facts": [],
+      "expect_stage": "Empathize",
+      "expect_reask": false
+    },
+    {
+      "user": "It stresses me out because I worry she'll miss a dose",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [
+          {
+            "operation": "ADD",
+            "field": "pain_points",
+            "value": "stress and worry about missed doses"
+          }
+        ]
+      },
+      "expect_reply": "That's a strong signal. To ground the problem in real observations, what have you seen or heard that tells you this is a real problem worth solving?",
+      "expect_objective": "EVIDENCE",
+      "expect_family": "EVIDENCE_OBSERVATIONS",
+      "expect_asked_families": [
+        "PROBLEMS_CORE",
+        "FREQUENCY_ESTIMATE",
+        "SOLUTIONS_CURRENT",
+        "PAIN_FRUSTRATIONS",
+        "EVIDENCE_OBSERVATIONS"
+      ],
+      "expect_state": {
+        "evidence": [],
+        "personas": [
+          "elderly people"
+        ],
+        "current_solutions": [
+          "currently uses a simple pill box"
+        ],
+        "problems": [
+          "forgetting to take medication on time"
+        ],
+        "pain_points": [
+          "stress and worry about missed doses"
+        ],
+        "impacts": [],
+        "frequency": "every single day"
+      },
+      "expect_checklist": {
+        "target_audience": true,
+        "pain_point": true,
+        "motivation": true,
+        "existing_solution": true,
+        "frequency": true,
+        "evidence": false
+      },
+      "expect_unknown_facts": [],
+      "expect_stage": "Empathize",
+      "expect_reask": false
+    },
+    {
+      "user": "I have seen her skip doses at least twice last week",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [
+          {
+            "operation": "ADD",
+            "field": "evidence",
+            "value": "observed her skip doses twice last week"
+          }
+        ]
+      },
+      "expect_reply": "That's a rich set of insights. Here's what I understand so far: you're focusing on elderly people, who struggle with forgetting to take medication on time, and you're motivated because of stress and worry about missed doses, currently handling it with currently uses a simple pill box, and running into this every single day, with evidence: observed her skip doses twice last week. Does that capture things accurately, or would you like to add anything?",
+      "expect_objective": "WRAP_UP",
+      "expect_asked_families": [
+        "PROBLEMS_CORE",
+        "FREQUENCY_ESTIMATE",
+        "SOLUTIONS_CURRENT",
+        "PAIN_FRUSTRATIONS",
+        "EVIDENCE_OBSERVATIONS",
+        "PROBLEMS_WHY"
+      ],
+      "expect_state": {
+        "evidence": [
+          "observed her skip doses twice last week"
+        ],
+        "personas": [
+          "elderly people"
+        ],
+        "current_solutions": [
+          "currently uses a simple pill box"
+        ],
+        "problems": [
+          "forgetting to take medication on time"
+        ],
+        "pain_points": [
+          "stress and worry about missed doses"
+        ],
+        "impacts": [],
+        "frequency": "every single day"
+      },
+      "expect_checklist": {
+        "target_audience": true,
+        "pain_point": true,
+        "motivation": true,
+        "existing_solution": true,
+        "frequency": true,
+        "evidence": true
+      },
+      "expect_family": "PROBLEMS_WHY",
+      "expect_unknown_facts": [],
+      "expect_stage": "Empathize",
+      "expect_reask": false
+    },
+    {
+      "user": "yes",
+      "expect_reply": "Great - that wraps up Empathize nicely. Before we move to the next stage, is there anything you'd like to revisit or add?",
+      "expect_objective": "WRAP_UP",
+      "expect_stage": "Empathize_Complete",
+      "expect_asked_families": [
+        "PROBLEMS_CORE",
+        "FREQUENCY_ESTIMATE",
+        "SOLUTIONS_CURRENT",
+        "PAIN_FRUSTRATIONS",
+        "EVIDENCE_OBSERVATIONS",
+        "PROBLEMS_WHY"
+      ],
+      "expect_state": {
+        "evidence": [
+          "observed her skip doses twice last week"
+        ],
+        "personas": [
+          "elderly people"
+        ],
+        "current_solutions": [
+          "currently uses a simple pill box"
+        ],
+        "problems": [
+          "forgetting to take medication on time"
+        ],
+        "pain_points": [
+          "stress and worry about missed doses"
+        ],
+        "impacts": [],
+        "frequency": "every single day"
+      },
+      "expect_family": null,
+      "expect_unknown_facts": [],
+      "expect_reask": false,
+      "expect_checklist": {
+        "target_audience": true,
+        "pain_point": true,
+        "motivation": true,
+        "existing_solution": true,
+        "frequency": true,
+        "evidence": true
+      }
+    }
+  ],
+  "expect_final_objective": "WRAP_UP",
+  "expect_final_stage": "Empathize_Complete"
+}

@@ -1,0 +1,56 @@
+{
+  "name": "03_natural_frequency_cadence",
+  "scenario": 3,
+  "description": "Natural frequency. The user volunteers a cadence in plain language ('every single day'); the deterministic rule-based extractor captures it verbatim and the objective advances past FREQUENCY. A later quantitative answer overwrites the scalar ('twice a week').",
+  "username": "golden_03",
+  "project_name": "GoldenProject",
+  "seed_state": {
+    "personas": [
+      "students"
+    ],
+    "problems": [
+      "forgetting assignments"
+    ],
+    "frequency": null
+  },
+  "turns": [
+    {
+      "user": "It happens every single day",
+      "expect_reply": "That's a real gap you're describing. To see what they currently lean on, how do people handle this problem today - what workarounds or tools do they currently use?",
+      "expect_objective": "CURRENT_SOLUTIONS",
+      "expect_family": "SOLUTIONS_CURRENT",
+      "expect_asked_families": [
+        "SOLUTIONS_CURRENT"
+      ],
+      "expect_state": {
+        "personas": [
+          "students"
+        ],
+        "problems": [
+          "forgetting assignments"
+        ],
+        "frequency": "every single day"
+      }
+    },
+    {
+      "user": "It happens twice a week",
+      "expect_reply": "That's a useful detail. To avoid re-suggesting what failed before, what have they already tried to solve this problem?",
+      "expect_objective": "CURRENT_SOLUTIONS",
+      "expect_family": "SOLUTIONS_ATTEMPTS",
+      "expect_asked_families": [
+        "SOLUTIONS_CURRENT",
+        "SOLUTIONS_ATTEMPTS"
+      ],
+      "expect_state": {
+        "personas": [
+          "students"
+        ],
+        "problems": [
+          "forgetting assignments"
+        ],
+        "frequency": "twice a week"
+      }
+    }
+  ],
+  "expect_final_objective": "CURRENT_SOLUTIONS"
+}

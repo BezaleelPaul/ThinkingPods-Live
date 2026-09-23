@@ -10,3 +10,5 @@ torchaudio
 scipy
 numpy
 python-multipart
+sounddevice
+omegaconf

@@ -1,0 +1,43 @@
+{
+  "name": "11a_repeat_guard_fresh_family",
+  "scenario": 11,
+  "description": "Repeat guard. The LLM repeats a family that was already asked while a fresh family is available and the answer is still insufficient; the guard substitutes the family-aware fallback (FREQUENCY_PERCENTAGE) and records it.",
+  "username": "golden_11a",
+  "project_name": "GoldenProject",
+  "seed_state": {
+    "personas": [
+      "students"
+    ],
+    "problems": [
+      "forgetting"
+    ],
+    "frequency": null
+  },
+  "seed_asked_families": [
+    "FREQUENCY_ESTIMATE"
+  ],
+  "turns": [
+    {
+      "user": "I think a lot of people are affected",
+      "ollama_reply": "How often does this occur?",
+      "expect_reply": "That's a useful gauge of scale. To see how widely this reaches people, what percentage of the people you're designing for would you estimate experiences this problem?",
+      "expect_objective": "FREQUENCY",
+      "expect_family": "FREQUENCY_PERCENTAGE",
+      "expect_asked_families": [
+        "FREQUENCY_ESTIMATE",
+        "FREQUENCY_PERCENTAGE"
+      ],
+      "expect_reask": false,
+      "expect_state": {
+        "personas": [
+          "students"
+        ],
+        "problems": [
+          "forgetting"
+        ],
+        "frequency": null
+      }
+    }
+  ],
+  "expect_final_objective": "FREQUENCY"
+}

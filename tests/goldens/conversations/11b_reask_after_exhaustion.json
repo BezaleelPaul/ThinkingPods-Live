@@ -1,0 +1,30 @@
+{
+  "name": "11b_reask_after_exhaustion",
+  "scenario": 11,
+  "description": "Re-ask sanctioned. Every frequency family has already been asked and the answer is still insufficient, so re-asking the least-recently-asked family is allowed and the LLM reply passes through the guard.",
+  "username": "golden_11b",
+  "project_name": "GoldenProject",
+  "seed_state": {
+    "personas": ["students"],
+    "problems": ["forgetting"],
+    "frequency": null
+  },
+  "seed_asked_families": ["FREQUENCY_ESTIMATE", "FREQUENCY_PERCENTAGE", "FREQUENCY_PREVALENCE", "FREQUENCY_EXAMPLES"],
+  "turns": [
+    {
+      "user": "A lot, I keep telling you",
+      "ollama_reply": "How often does this occur?",
+      "expect_reply": "How often does this occur?",
+      "expect_objective": "FREQUENCY",
+      "expect_family": "FREQUENCY_ESTIMATE",
+      "expect_asked_families": ["FREQUENCY_ESTIMATE", "FREQUENCY_PERCENTAGE", "FREQUENCY_PREVALENCE", "FREQUENCY_EXAMPLES"],
+      "expect_reask": true,
+      "expect_state": {
+        "personas": ["students"],
+        "problems": ["forgetting"],
+        "frequency": null
+      }
+    }
+  ],
+  "expect_final_objective": "FREQUENCY"
+}

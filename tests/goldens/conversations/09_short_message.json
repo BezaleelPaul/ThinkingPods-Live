@@ -1,0 +1,45 @@
+{
+  "name": "09_short_message",
+  "scenario": 9,
+  "description": "Short message. The mentor asks a question and the user answers with a terse single-word reply; the short message is still captured into ProjectState and the objective advances.",
+  "username": "golden_09",
+  "project_name": "GoldenProject",
+  "seed_state": {},
+  "turns": [
+    {
+      "user": "Who are the users?",
+      "expect_reply": "That's a meaningful starting point. To focus the design on the right people, who specifically would benefit from this - can you describe the people you're designing for?",
+      "expect_objective": "PERSONAS",
+      "expect_family": "PERSONAS_WHO",
+      "expect_asked_families": [
+        "PERSONAS_WHO"
+      ]
+    },
+    {
+      "user": "Students",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [
+          {
+            "operation": "ADD",
+            "field": "personas",
+            "value": "students"
+          }
+        ]
+      },
+      "expect_reply": "That's a clear view of who you're helping. To shape the problem statement precisely, what is the core problem or frustration they're experiencing?",
+      "expect_objective": "PROBLEMS",
+      "expect_family": "PROBLEMS_CORE",
+      "expect_asked_families": [
+        "PERSONAS_WHO",
+        "PROBLEMS_CORE"
+      ],
+      "expect_state": {
+        "personas": [
+          "college students"
+        ]
+      }
+    }
+  ],
+  "expect_final_objective": "PROBLEMS"
+}

@@ -1,0 +1,73 @@
+{
+  "name": "08_multiple_facts_one_message",
+  "scenario": 8,
+  "description": "Multiple facts in one message. A single turn carries four updates (persona + problem + pain + evidence) in the canned LLM result. The message is HIGH complexity, so the Semantic Complexity Gate keeps the LLM running even though the rules already satisfy the current objective (PERSONAS); the full canned extraction lands in state.",
+  "username": "golden_08",
+  "project_name": "GoldenProject",
+  "seed_state": {},
+  "turns": [
+    {
+      "user": "I've been building this for students who keep missing deadlines - it stresses them out and I've interviewed ten of them",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [
+          {
+            "operation": "ADD",
+            "field": "personas",
+            "value": "students"
+          },
+          {
+            "operation": "ADD",
+            "field": "problems",
+            "value": "missing deadlines"
+          },
+          {
+            "operation": "ADD",
+            "field": "pain_points",
+            "value": "stress"
+          },
+          {
+            "operation": "ADD",
+            "field": "evidence",
+            "value": "interviewed 10 students"
+          }
+        ]
+      },
+      "expect_reply": "That's a clear picture of the situation. To understand how urgently this needs solving, how often does the problem occur - daily, weekly, or only in certain situations?",
+      "expect_objective": "FREQUENCY",
+      "expect_family": "FREQUENCY_ESTIMATE",
+      "expect_asked_families": [
+        "FREQUENCY_ESTIMATE"
+      ],
+      "expect_state": {
+        "evidence": [
+          "interviewed 10 students"
+        ],
+        "personas": [
+          "students"
+        ],
+        "current_solutions": [],
+        "problems": [
+          "missing deadlines"
+        ],
+        "pain_points": [
+          "stress"
+        ],
+        "impacts": [],
+        "frequency": null
+      },
+      "expect_unknown_facts": [],
+      "expect_stage": "Empathize",
+      "expect_reask": false,
+      "expect_checklist": {
+        "target_audience": true,
+        "pain_point": true,
+        "motivation": true,
+        "existing_solution": false,
+        "frequency": false,
+        "evidence": true
+      }
+    }
+  ],
+  "expect_final_objective": "FREQUENCY"
+}

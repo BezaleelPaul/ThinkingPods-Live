@@ -1,0 +1,40 @@
+{
+  "name": "10_long_message_rule_based",
+  "scenario": 10,
+  "description": "Long message. A dense multi-sentence paragraph is processed entirely by the deterministic rule-based extractor, which captures persona, problem, frequency, current solution, and evidence in one pass.",
+  "username": "golden_10",
+  "project_name": "GoldenProject",
+  "seed_state": {},
+  "turns": [
+    {
+      "user": "I've been thinking about this for months. I want to build an app for college students who are always forgetting their assignments and missing deadlines. They currently use WhatsApp groups and a shared Google Sheet. It happens every week, usually Sunday night before submissions. I personally struggled with this in my first year, and I have seen lots of my classmates lose marks from it.",
+      "expect_objective": "PAIN_POINTS",
+      "expect_family": "PAIN_FRUSTRATIONS",
+      "expect_asked_families": ["PAIN_FRUSTRATIONS"],
+      "expect_state": {
+        "personas": ["college students"],
+        "problems": ["missing deadlines"],
+        "current_solutions": ["currently use whatsapp groups and a shared google sheet. it happens e"],
+        "pain_points": [],
+        "evidence": ["i have seen lots of my classmates lose marks from it."],
+        "impacts": [],
+        "frequency": "every week"
+      }
+    },
+    {
+      "user": "I care because my friend experiences this too",
+      "expect_objective": "WRAP_UP",
+      "expect_asked_families": ["PAIN_FRUSTRATIONS", "PROBLEMS_WHY"],
+      "expect_state": {
+        "personas": ["college students"],
+        "problems": ["missing deadlines"],
+        "current_solutions": ["currently use whatsapp groups and a shared google sheet. it happens e"],
+        "pain_points": ["personal connection - my friend"],
+        "evidence": ["i have seen lots of my classmates lose marks from it."],
+        "impacts": [],
+        "frequency": "every week"
+      }
+    }
+  ],
+  "expect_final_objective": "WRAP_UP"
+}

@@ -1,0 +1,80 @@
+{
+  "name": "02_vague_user_no_extraction",
+  "scenario": 2,
+  "description": "Vague user. Replies that carry no extractable facts ('I don't know', 'not sure', 'depends on') leave ProjectState untouched while the deterministic extractor records unknown_facts. The objective stays on PERSONAS and the question-family history advances through all three personas families.",
+  "username": "golden_02",
+  "project_name": "GoldenProject",
+  "seed_state": {},
+  "turns": [
+    {
+      "user": "I don't know yet, let me think",
+      "expect_reply": "That's a meaningful starting point. To focus the design on the right people, who specifically would benefit from this - can you describe the people you're designing for?",
+      "expect_objective": "PERSONAS",
+      "expect_family": "PERSONAS_WHO",
+      "expect_asked_families": [
+        "PERSONAS_WHO"
+      ],
+      "expect_unknown_facts": [
+        "I don't know yet, let me think"
+      ],
+      "expect_state": {
+        "personas": [],
+        "problems": [],
+        "current_solutions": [],
+        "pain_points": [],
+        "evidence": [],
+        "impacts": [],
+        "frequency": null
+      }
+    },
+    {
+      "user": "Not sure honestly",
+      "expect_reply": "Good - I can see the audience taking shape. To make the picture concrete, can you think of one specific person who would use this - what are they like?",
+      "expect_objective": "PERSONAS",
+      "expect_family": "PERSONAS_EXAMPLES",
+      "expect_asked_families": [
+        "PERSONAS_WHO",
+        "PERSONAS_EXAMPLES"
+      ],
+      "expect_unknown_facts": [
+        "I don't know yet, let me think",
+        "Not sure honestly"
+      ],
+      "expect_state": {
+        "personas": [],
+        "problems": [],
+        "current_solutions": [],
+        "pain_points": [],
+        "evidence": [],
+        "impacts": [],
+        "frequency": null
+      }
+    },
+    {
+      "user": "It depends on the situation",
+      "expect_reply": "That's a solid start on who they are. To sharpen the persona, what is the age, role, or background of the people you're designing for?",
+      "expect_objective": "PERSONAS",
+      "expect_family": "PERSONAS_DEMOGRAPHICS",
+      "expect_asked_families": [
+        "PERSONAS_WHO",
+        "PERSONAS_EXAMPLES",
+        "PERSONAS_DEMOGRAPHICS"
+      ],
+      "expect_unknown_facts": [
+        "I don't know yet, let me think",
+        "Not sure honestly",
+        "It depends on the situation"
+      ],
+      "expect_state": {
+        "personas": [],
+        "problems": [],
+        "current_solutions": [],
+        "pain_points": [],
+        "evidence": [],
+        "impacts": [],
+        "frequency": null
+      }
+    }
+  ],
+  "expect_final_objective": "PERSONAS"
+}

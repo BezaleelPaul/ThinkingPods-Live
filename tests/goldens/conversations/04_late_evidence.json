@@ -1,0 +1,70 @@
+{
+  "name": "04_late_evidence",
+  "scenario": 4,
+  "description": "Late evidence. Evidence is supplied last, confirming the canonical priority order (personas -> problems -> frequency -> current_solutions -> pain_points -> evidence). Each turn's objective and the final WRAP_UP objective are pinned.",
+  "username": "golden_04",
+  "project_name": "GoldenProject",
+  "seed_state": {},
+  "turns": [
+    {
+      "user": "The users are students",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [{"operation": "ADD", "field": "personas", "value": "students"}]
+      },
+      "expect_objective": "PROBLEMS",
+      "expect_family": "PROBLEMS_CORE",
+      "expect_asked_families": ["PROBLEMS_CORE"]
+    },
+    {
+      "user": "They keep submitting late",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [{"operation": "ADD", "field": "problems", "value": "late assignment submissions"}]
+      },
+      "expect_objective": "FREQUENCY",
+      "expect_family": "FREQUENCY_ESTIMATE",
+      "expect_asked_families": ["PROBLEMS_CORE", "FREQUENCY_ESTIMATE"]
+    },
+    {
+      "user": "It's a weekly thing",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [{"operation": "SET", "field": "frequency", "value": "weekly"}]
+      },
+      "expect_objective": "CURRENT_SOLUTIONS",
+      "expect_family": "SOLUTIONS_CURRENT",
+      "expect_asked_families": ["PROBLEMS_CORE", "FREQUENCY_ESTIMATE", "SOLUTIONS_CURRENT"]
+    },
+    {
+      "user": "They share a google sheet to track deadlines",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [{"operation": "ADD", "field": "current_solutions", "value": "shared google sheet"}]
+      },
+      "expect_objective": "PAIN_POINTS",
+      "expect_family": "PAIN_FRUSTRATIONS",
+      "expect_asked_families": ["PROBLEMS_CORE", "FREQUENCY_ESTIMATE", "SOLUTIONS_CURRENT", "PAIN_FRUSTRATIONS"]
+    },
+    {
+      "user": "It stresses them out",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [{"operation": "ADD", "field": "pain_points", "value": "stress about grades"}]
+      },
+      "expect_objective": "EVIDENCE",
+      "expect_family": "EVIDENCE_OBSERVATIONS",
+      "expect_asked_families": ["PROBLEMS_CORE", "FREQUENCY_ESTIMATE", "SOLUTIONS_CURRENT", "PAIN_FRUSTRATIONS", "EVIDENCE_OBSERVATIONS"]
+    },
+    {
+      "user": "I surveyed 20 students last month",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [{"operation": "ADD", "field": "evidence", "value": "surveyed 20 students"}]
+      },
+      "expect_objective": "WRAP_UP",
+      "expect_asked_families": ["PROBLEMS_CORE", "FREQUENCY_ESTIMATE", "SOLUTIONS_CURRENT", "PAIN_FRUSTRATIONS", "EVIDENCE_OBSERVATIONS", "PROBLEMS_WHY"]
+    }
+  ],
+  "expect_final_objective": "WRAP_UP"
+}

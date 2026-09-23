@@ -1,0 +1,186 @@
+{
+  "name": "05_audience_change",
+  "scenario": 5,
+  "description": "Audience change. A second, different persona in a later message is appended (not replaced), and a duplicate mention is de-duplicated. State and objective progression are pinned.",
+  "username": "golden_05",
+  "project_name": "GoldenProject",
+  "seed_state": {},
+  "turns": [
+    {
+      "user": "I want to help students",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [
+          {
+            "operation": "ADD",
+            "field": "personas",
+            "value": "students"
+          }
+        ]
+      },
+      "expect_objective": "PROBLEMS",
+      "expect_state": {
+        "evidence": [],
+        "personas": [
+          "students"
+        ],
+        "current_solutions": [],
+        "problems": [],
+        "pain_points": [],
+        "impacts": [],
+        "frequency": null
+      },
+      "expect_reply": "That's a clear view of who you're helping. To shape the problem statement precisely, what is the core problem or frustration they're experiencing?",
+      "expect_family": "PROBLEMS_CORE",
+      "expect_asked_families": [
+        "PROBLEMS_CORE"
+      ],
+      "expect_unknown_facts": [],
+      "expect_stage": "Empathize",
+      "expect_reask": false,
+      "expect_checklist": {
+        "target_audience": true,
+        "pain_point": false,
+        "motivation": false,
+        "existing_solution": false,
+        "frequency": false,
+        "evidence": false
+      }
+    },
+    {
+      "user": "Actually parents are affected too",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [
+          {
+            "operation": "ADD",
+            "field": "personas",
+            "value": "parents"
+          }
+        ]
+      },
+      "expect_objective": "PROBLEMS",
+      "expect_state": {
+        "evidence": [],
+        "personas": [
+          "students",
+          "parents"
+        ],
+        "current_solutions": [],
+        "problems": [],
+        "pain_points": [],
+        "impacts": [],
+        "frequency": null
+      },
+      "expect_reply": "That's a real problem taking shape. To make it concrete, could you give me an example of the problem they run into?",
+      "expect_family": "PROBLEMS_EXAMPLES",
+      "expect_asked_families": [
+        "PROBLEMS_CORE",
+        "PROBLEMS_EXAMPLES"
+      ],
+      "expect_unknown_facts": [],
+      "expect_stage": "Empathize",
+      "expect_reask": false,
+      "expect_checklist": {
+        "target_audience": true,
+        "pain_point": false,
+        "motivation": false,
+        "existing_solution": false,
+        "frequency": false,
+        "evidence": false
+      }
+    },
+    {
+      "user": "Yes students mainly",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [
+          {
+            "operation": "ADD",
+            "field": "personas",
+            "value": "students"
+          }
+        ]
+      },
+      "expect_objective": "PROBLEMS",
+      "expect_state": {
+        "evidence": [],
+        "personas": [
+          "students",
+          "parents"
+        ],
+        "current_solutions": [],
+        "problems": [],
+        "pain_points": [],
+        "impacts": [],
+        "frequency": null
+      },
+      "expect_reply": "That's a useful angle. To understand why it weighs on people, why does this problem matter to the people experiencing it?",
+      "expect_family": "PROBLEMS_WHY",
+      "expect_asked_families": [
+        "PROBLEMS_CORE",
+        "PROBLEMS_EXAMPLES",
+        "PROBLEMS_WHY"
+      ],
+      "expect_unknown_facts": [],
+      "expect_stage": "Empathize",
+      "expect_reask": false,
+      "expect_checklist": {
+        "target_audience": true,
+        "pain_point": false,
+        "motivation": false,
+        "existing_solution": false,
+        "frequency": false,
+        "evidence": false
+      }
+    },
+    {
+      "user": "They have trouble tracking assignment deadlines",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [
+          {
+            "operation": "ADD",
+            "field": "problems",
+            "value": "hard to track assignment deadlines"
+          }
+        ]
+      },
+      "expect_objective": "FREQUENCY",
+      "expect_state": {
+        "evidence": [],
+        "personas": [
+          "students",
+          "parents"
+        ],
+        "current_solutions": [],
+        "problems": [
+          "hard to track assignment deadlines"
+        ],
+        "pain_points": [],
+        "impacts": [],
+        "frequency": null
+      },
+      "expect_reply": "That's a clear picture of the situation. To understand how urgently this needs solving, how often does the problem occur - daily, weekly, or only in certain situations?",
+      "expect_family": "FREQUENCY_ESTIMATE",
+      "expect_asked_families": [
+        "PROBLEMS_CORE",
+        "PROBLEMS_EXAMPLES",
+        "PROBLEMS_WHY",
+        "FREQUENCY_ESTIMATE"
+      ],
+      "expect_unknown_facts": [],
+      "expect_stage": "Empathize",
+      "expect_reask": false,
+      "expect_checklist": {
+        "target_audience": true,
+        "pain_point": true,
+        "motivation": false,
+        "existing_solution": false,
+        "frequency": false,
+        "evidence": false
+      }
+    }
+  ],
+  "expect_final_objective": "FREQUENCY"
+}

@@ -1,0 +1,75 @@
+{
+  "name": "07_existing_solution",
+  "scenario": 7,
+  "description": "Existing solution. The user describes how people currently handle the problem; it lands in current_solutions and the CURRENT_SOLUTIONS objective resolves to WRAP_UP.",
+  "username": "golden_07",
+  "project_name": "GoldenProject",
+  "seed_state": {
+    "personas": [
+      "students"
+    ],
+    "problems": [
+      "missing deadlines"
+    ],
+    "current_solutions": [],
+    "pain_points": [
+      "stress"
+    ],
+    "evidence": [
+      "interviewed 5 students"
+    ],
+    "frequency": "weekly"
+  },
+  "turns": [
+    {
+      "user": "They all use sticky notes and a paper planner",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [
+          {
+            "operation": "ADD",
+            "field": "current_solutions",
+            "value": "sticky notes and a paper planner"
+          }
+        ]
+      },
+      "expect_reply": "That's a rich set of insights. Here's what I understand so far: you're focusing on students, who struggle with missing deadlines, and you're motivated because of stress, currently handling it with sticky notes and a paper planner, and running into this weekly, with evidence: interviewed 5 students. Does that capture things accurately, or would you like to add anything?",
+      "expect_objective": "WRAP_UP",
+      "expect_state": {
+        "evidence": [
+          "interviewed 5 students"
+        ],
+        "personas": [
+          "students"
+        ],
+        "current_solutions": [
+          "sticky notes and a paper planner"
+        ],
+        "problems": [
+          "missing deadlines"
+        ],
+        "pain_points": [
+          "stress"
+        ],
+        "impacts": [],
+        "frequency": "weekly"
+      },
+      "expect_checklist": {
+        "target_audience": true,
+        "pain_point": true,
+        "motivation": true,
+        "existing_solution": true,
+        "frequency": true,
+        "evidence": true
+      },
+      "expect_family": "PROBLEMS_WHY",
+      "expect_asked_families": [
+        "PROBLEMS_WHY"
+      ],
+      "expect_unknown_facts": [],
+      "expect_stage": "Empathize",
+      "expect_reask": false
+    }
+  ],
+  "expect_final_objective": "WRAP_UP"
+}

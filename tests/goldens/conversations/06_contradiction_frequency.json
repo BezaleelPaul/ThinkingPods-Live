@@ -1,0 +1,33 @@
+{
+  "name": "06_contradiction_frequency",
+  "scenario": 6,
+  "description": "Contradiction. When the user later gives a different frequency, the scalar is overwritten via SET (never appended, never merged). The second value wins.",
+  "username": "golden_06",
+  "project_name": "GoldenProject",
+  "seed_state": {
+    "personas": ["students"],
+    "problems": ["forgetting assignments"],
+    "frequency": null
+  },
+  "turns": [
+    {
+      "user": "It happens every single day",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [{"operation": "SET", "field": "frequency", "value": "every single day"}]
+      },
+      "expect_objective": "CURRENT_SOLUTIONS",
+      "expect_state": {"frequency": "every single day"}
+    },
+    {
+      "user": "Actually it's more like three times a week",
+      "extraction": {
+        "message_type": "MEANINGFUL",
+        "updates": [{"operation": "SET", "field": "frequency", "value": "three times a week"}]
+      },
+      "expect_objective": "CURRENT_SOLUTIONS",
+      "expect_state": {"frequency": "three times a week"}
+    }
+  ],
+  "expect_final_objective": "CURRENT_SOLUTIONS"
+}
