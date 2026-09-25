@@ -1,5 +1,7 @@
 # ReqGPT / ThinkingPods — AI Design Thinking Assistant
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/VenkataAdityaS125/ThinkingPods/blob/main/ThinkingPods_Cloud.ipynb)
+
 An offline-first, local AI assistant for Design Thinking sessions (Empathize, Discovery, and Coaching).
 
 > **Core Philosophy:** *The application does the thinking; the LLM does the talking.*
@@ -131,10 +133,11 @@ Use the included 1-click Cloudflare Tunnel script to generate a secure, temporar
 2. In a separate window, run: `run_public_tunnel.bat`
 3. Copy the generated `https://....trycloudflare.com` link and open it on your phone or share it with anyone.
 
-### Method 2: Free 24/7 Cloud Hosting (Hugging Face Spaces)
-Hugging Face offers free 2 vCPU / 16 GB RAM Docker Spaces:
-1. Go to [Hugging Face Spaces](https://huggingface.co/spaces) and click **Create new Space**.
-2. Set Space SDK to **Docker** (Blank).
-3. Connect your GitHub repository (`VenkataAdityaS125/ThinkingPods`).
-4. Hugging Face will automatically build using the included `Dockerfile` and `start.sh`, boot Ollama, download the model, and launch the UI on the web for free 24/7.
+### Method 2: 1-Click Google Cloud Hosting (100% Free · 12.7 GB RAM & GPU)
+Run ThinkingPods entirely on Google Cloud without using your personal computer's CPU or memory:
+1. Click the **[Open in Colab](https://colab.research.google.com/github/VenkataAdityaS125/ThinkingPods/blob/main/ThinkingPods_Cloud.ipynb)** badge at the top of the repository.
+2. In Google Colab, click **Runtime ➡️ Run all**.
+3. It will provision Google's high-speed cloud environment, start Ollama, boot the FastAPI backend and Streamlit UI, and output a live `https://....trycloudflare.com` link.
+4. Your computer usage is 0%, and it runs on Google's free 12.7 GB RAM and NVIDIA GPU.
+
 
