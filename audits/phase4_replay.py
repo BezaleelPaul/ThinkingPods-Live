@@ -32,7 +32,8 @@ import sys
 from dataclasses import dataclass, field
 from unittest import mock
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _root)
 
 from conversation_context import (  # noqa: E402
     SAFETY_REFUSAL_REPLY,
@@ -266,7 +267,7 @@ _GOLDEN_PINNED = {
 
 
 def _load_golden_messages() -> list[str]:
-    p = os.path.join(os.path.dirname(__file__), "tests", "goldens", "conversations")
+    p = os.path.join(_root, "tests", "goldens", "conversations")
     msgs = []
     for fn in sorted(os.listdir(p)):
         if fn.endswith(".json"):

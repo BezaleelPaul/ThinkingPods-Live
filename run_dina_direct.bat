@@ -39,5 +39,5 @@ echo ===========================================
 echo 1. Ensure Ollama is running in background.
 echo 2. loading models (Whisper + Silero)...
 echo.
-"%PYTHON%" "%~dp0dina_direct.py"
+"%PYTHON%" "%~dp0cli\dina_direct.py"
 pause

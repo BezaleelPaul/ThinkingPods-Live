@@ -36,5 +36,5 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8000 ^| findstr LISTENING') 
 )
 
 echo Loading Design Thinking Coach (Pure Question-Based Assistant)...
-"%PYTHON%" "%~dp0design_thinking_coach.py"
+"%PYTHON%" "%~dp0cli\design_thinking_coach.py"
 pause

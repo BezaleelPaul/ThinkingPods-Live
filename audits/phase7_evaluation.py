@@ -31,7 +31,7 @@ import time
 from dataclasses import dataclass, field
 from unittest import mock
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from conversation_context import (  # noqa: E402
     SAFETY_REFUSAL_REPLY,

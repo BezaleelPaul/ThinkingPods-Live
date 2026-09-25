@@ -25,5 +25,5 @@ rem Single model for both mentor and extraction.
 set MENTOR_MODEL=qwen2.5:3b
 
 echo Starting Text-Based Design Thinking Coach...
-"%PYTHON%" "%~dp0design_thinking_coach_text.py"
+"%PYTHON%" "%~dp0cli\design_thinking_coach_text.py"
 pause

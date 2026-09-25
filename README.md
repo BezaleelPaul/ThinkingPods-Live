@@ -21,6 +21,18 @@ thinkingpodsreamke/
 ├── track_mistakes.py           # 🔍 Unified Mistake & Failure Tracking Engine
 ├── run_track_mistakes.bat      # 🚀 1-Click Mistake Tracker launcher for Windows
 │
+├── cli/                        # 🎙️ Standalone CLI voice & text loops
+│   ├── dina_direct.py          # Direct Dina voice loop
+│   ├── design_thinking_coach.py# Coach voice loop
+│   └── design_thinking_coach_text.py # Coach text loop
+│
+├── audits/                     # 🔬 Evaluation, replay & pipeline audit runners
+│   ├── replay_lab.py           # Replay lab regression harness
+│   ├── run_conversation_failure.py # Failure classification runner
+│   ├── phase4_replay.py        # Phase 4 replay harness
+│   ├── phase7_evaluation.py    # Phase 7 evaluation suite
+│   └── pipeline_trace.py       # Pipeline execution tracer
+│
 ├── module3/                    # Module 3: Objective Engine & Completeness Checker
 ├── module4/                    # Module 4: Response Strategy & Prompt Builder
 ├── module5/                    # Module 5: Lifecycle Manager & Summary Builder

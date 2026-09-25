@@ -31,7 +31,7 @@ os.environ["COMPLEXITY_GATE"] = "true"
 
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests.goldens.fixtures import load_all_fixtures  # noqa: E402
 from tests.goldens.runner import (  # noqa: E402

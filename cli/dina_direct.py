@@ -1,3 +1,10 @@
+import os
+import sys
+
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
 import time
 import threading
 import queue
@@ -9,9 +16,6 @@ import ollama
 from faster_whisper import WhisperModel
 from memory import SemanticHistoryRetriever
 from mentor import process_mentor_turn, ChecklistManager, MentorSession, print_ascii_dashboard
-
-# --- Configuration for Low-End Laptops ---
-import os
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "tiny.en")  # Default to tiny for better performance
 OLLAMA_MODEL = os.getenv("MENTOR_MODEL", "qwen2.5:3b")
 SILERO_SAMPLE_RATE = 48000

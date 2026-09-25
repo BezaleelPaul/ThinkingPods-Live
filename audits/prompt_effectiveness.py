@@ -88,7 +88,7 @@ import time
 from typing import Any, Optional
 from unittest import mock
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 os.environ.setdefault("COMPLEXITY_GATE", "true")
 

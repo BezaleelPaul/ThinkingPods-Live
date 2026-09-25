@@ -4,6 +4,12 @@ Design Thinking Coach - Pure Question-Based Assistant
 Focuses exclusively on asking critical questions to stimulate
 design thinking and brainstorming, without providing direct answers or solutions.
 """
+import os
+import sys
+
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
 
 import time
 import threading
@@ -16,7 +22,6 @@ import ollama
 from faster_whisper import WhisperModel
 from memory import SemanticHistoryRetriever
 from mentor import process_mentor_turn, ChecklistManager, MentorSession, print_ascii_dashboard
-import os
 
 # --- Configuration for Low-End Laptops ---
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "tiny.en")  # Default to tiny for better performance
