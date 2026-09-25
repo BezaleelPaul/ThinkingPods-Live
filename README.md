@@ -118,3 +118,23 @@ Run pytest across all modules:
 ```cmd
 pytest tests
 ```
+
+---
+
+## 🌐 Free Deployment Options
+
+ReqGPT requires running local AI models (Ollama LLM, faster-whisper STT, and Silero TTS), which require at least 2–4 GB RAM. Here are the two **100% free** ways to deploy and share it:
+
+### Method 1: Instant Free Public Link (Zero Cost, No Account Needed)
+Use the included 1-click Cloudflare Tunnel script to generate a secure, temporary `https://....trycloudflare.com` URL pointing directly to your running instance:
+1. Start the system: `run.bat`
+2. In a separate window, run: `run_public_tunnel.bat`
+3. Copy the generated `https://....trycloudflare.com` link and open it on your phone or share it with anyone.
+
+### Method 2: Free 24/7 Cloud Hosting (Hugging Face Spaces)
+Hugging Face offers free 2 vCPU / 16 GB RAM Docker Spaces:
+1. Go to [Hugging Face Spaces](https://huggingface.co/spaces) and click **Create new Space**.
+2. Set Space SDK to **Docker** (Blank).
+3. Connect your GitHub repository (`VenkataAdityaS125/ThinkingPods`).
+4. Hugging Face will automatically build using the included `Dockerfile` and `start.sh`, boot Ollama, download the model, and launch the UI on the web for free 24/7.
+

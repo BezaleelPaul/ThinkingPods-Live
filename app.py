@@ -12,7 +12,7 @@ from constants import MERMAID_KEYWORDS
 from session_lifecycle import SessionLifecycle
 
 # --- Backend Configuration ---
-BACKEND_URL = "http://127.0.0.1:8000"
+BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 
 # --- Developer Console (collapsible VS Code-style right-side inspector) ---
 # All console logic lives in developer_console.py (pure, unit-tested). This

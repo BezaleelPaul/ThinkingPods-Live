@@ -21,3 +21,4 @@ sessions/
 .claude/
 server_pid.txt
 svr_pid.txt
+cloudflared.exe
