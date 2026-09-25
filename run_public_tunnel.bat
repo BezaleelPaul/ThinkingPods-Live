@@ -10,7 +10,7 @@ echo Checking for Cloudflare Tunnel tool (cloudflared.exe)...
 
 if not exist "%~dp0cloudflared.exe" (
     echo Downloading portable cloudflared tool...
-    powershell -Command "Invoke-WebRequest -Uri 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe' -OutFile '%~dp0cloudflared.exe'"
+    curl.exe -L -o "%~dp0cloudflared.exe" "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
     if not exist "%~dp0cloudflared.exe" (
         echo [ERROR] Failed to download cloudflared. Please check your internet connection.
         pause
