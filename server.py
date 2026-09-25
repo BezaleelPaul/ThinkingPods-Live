@@ -27,7 +27,18 @@ from constants import MERMAID_KEYWORDS, LLM_LOADING_MSG_VERBOSE, LLM_LOADING_MSG
 # answer /health almost immediately while the models load in the background
 # thread. Conversation quality and all mentor logic are untouched.
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["X-Reply", "X-Transcript", "X-Timing", "X-Diagnostics"],
+)
 
 # --- Models ---
 MODELS = {

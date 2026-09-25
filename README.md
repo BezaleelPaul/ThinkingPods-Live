@@ -1,6 +1,7 @@
 # ReqGPT / ThinkingPods — AI Design Thinking Assistant
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/VenkataAdityaS125/ThinkingPods/blob/main/ThinkingPods_Cloud.ipynb)
+[![Live Web App](https://img.shields.io/badge/Live_App-GitHub_Pages-blue?logo=github)](https://VenkataAdityaS125.github.io/ThinkingPods/)
 
 An offline-first, local AI assistant for Design Thinking sessions (Empathize, Discovery, and Coaching).
 

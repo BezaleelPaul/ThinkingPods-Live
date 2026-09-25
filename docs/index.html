@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ThinkingPods — AI Design Thinking Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .chat-bubble-user { background: #2563eb; color: #ffffff; border-radius: 1.25rem 1.25rem 0.25rem 1.25rem; }
+    .chat-bubble-mentor { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 1.25rem 1.25rem 1.25rem 0.25rem; }
+    .recording-pulse { animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite; }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden">
+
+  <!-- Top Navbar -->
+  <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between shadow-md">
+    <div class="flex items-center space-x-3">
+      <div class="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-white shadow">
+        💡
+      </div>
+      <div>
+        <h1 class="font-bold text-base md:text-lg leading-tight text-white">ThinkingPods <span class="text-xs text-indigo-400 font-mono font-normal">v2.0 Web</span></h1>
+        <p class="text-xs text-slate-400">Offline-first AI Design Thinking Assistant</p>
+      </div>
+    </div>
+
+    <!-- Backend status & Settings -->
+    <div class="flex items-center space-x-3">
+      <div id="statusBadge" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30">
+        <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+        <span id="statusText">Checking...</span>
+      </div>
+      <button onclick="toggleModal(true)" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center space-x-1.5 transition">
+        <i class="fa-solid fa-cloud"></i>
+        <span class="hidden sm:inline">Backend URL</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="flex flex-1 overflow-hidden">
+    <!-- Sidebar / Configuration -->
+    <aside class="w-64 bg-slate-900/60 border-r border-slate-800 p-4 hidden md:flex flex-col justify-between">
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">Pod Stage</label>
+          <select id="podSelect" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
+            <option value="Empathize" selected>1. Empathize</option>
+            <option value="Discovery">2. Discovery</option>
+            <option value="Define">3. Define</option>
+            <option value="Ideate">4. Ideate</option>
+            <option value="Prototype">5. Prototype</option>
+            <option value="Test">6. Test</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">Mode</label>
+          <select id="modeSelect" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
+            <option value="Design Thinking Coach" selected>Design Thinking Coach</option>
+            <option value="Assistant">Requirement Engineer</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">Username</label>
+          <input id="userNameInput" type="text" value="User" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">Project Name</label>
+          <input id="projectNameInput" type="text" value="MyProject" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-indigo-500" />
+        </div>
+      </div>
+
+      <div class="pt-4 border-t border-slate-800 space-y-2">
+        <button onclick="resetSession()" class="w-full text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 py-2 px-3 rounded-lg border border-rose-500/20 transition flex items-center justify-center space-x-1.5">
+          <i class="fa-solid fa-arrows-rotate"></i>
+          <span>Reset Session</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Chat Area -->
+    <main class="flex-1 flex flex-col bg-slate-950">
+      <!-- Message Stream -->
+      <div id="chatMessages" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+        <!-- Initial Welcome Message -->
+        <div class="flex items-start space-x-3">
+          <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold shadow">
+            💡
+          </div>
+          <div class="chat-bubble-mentor p-3.5 max-w-2xl text-sm leading-relaxed shadow-sm">
+            <p class="font-medium text-indigo-300 mb-1">Welcome to ThinkingPods!</p>
+            <p>I'm your Design Thinking mentor. Let's explore your problem space together.</p>
+            <p class="mt-2 text-xs text-slate-400">💡 <em>Tip: Connect your Google Colab or local backend using the button at top-right to start chatting!</em></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Audio Element for Mentor Voice -->
+      <audio id="ttsAudio" class="hidden" autoplay></audio>
+
+      <!-- Input Bar -->
+      <div class="p-3 md:p-4 bg-slate-900 border-t border-slate-800">
+        <form id="chatForm" onsubmit="handleSendText(event)" class="max-w-4xl mx-auto flex items-center space-x-2">
+          <!-- Voice Record Button -->
+          <button type="button" id="recordBtn" onclick="toggleRecord()" class="w-11 h-11 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition border border-slate-700 focus:outline-none flex-shrink-0" title="Click to speak">
+            <i class="fa-solid fa-microphone text-base" id="micIcon"></i>
+          </button>
+
+          <!-- Text Input -->
+          <input
+            id="messageInput"
+            type="text"
+            placeholder="Type your response or click the microphone to speak..."
+            autocomplete="off"
+            class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+          />
+
+          <!-- Send Button -->
+          <button type="submit" id="sendBtn" class="w-11 h-11 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center transition shadow-md focus:outline-none flex-shrink-0">
+            <i class="fa-solid fa-arrow-up text-sm"></i>
+          </button>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <!-- Backend Settings Modal -->
+  <div id="backendModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-base text-white flex items-center space-x-2">
+          <i class="fa-solid fa-server text-indigo-400"></i>
+          <span>Backend Configuration</span>
+        </h3>
+        <button onclick="toggleModal(false)" class="text-slate-400 hover:text-slate-200">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-400 leading-relaxed">
+        Connect to your Google Colab tunnel or local instance. The default is your local server.
+      </p>
+
+      <div>
+        <label class="text-xs font-semibold text-slate-300 block mb-1">FastAPI Backend URL</label>
+        <input id="backendUrlInput" type="text" placeholder="https://....trycloudflare.com or http://127.0.0.1:8000" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" />
+      </div>
+
+      <div class="flex justify-end space-x-2 pt-2">
+        <button onclick="saveBackendUrl()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-lg text-sm transition">
+          Save & Connect
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let backendUrl = localStorage.getItem("thinkingpods_backend_url") || "http://127.0.0.1:8000";
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+
+    // Initialization
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("backendUrlInput").value = backendUrl;
+      checkHealth();
+      setInterval(checkHealth, 10000);
+      mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+    });
+
+    function toggleModal(show) {
+      document.getElementById("backendModal").classList.toggle("hidden", !show);
+    }
+
+    function saveBackendUrl() {
+      let val = document.getElementById("backendUrlInput").value.trim().replace(/\/$/, "");
+      if (val) {
+        backendUrl = val;
+        localStorage.setItem("thinkingpods_backend_url", backendUrl);
+        toggleModal(false);
+        checkHealth();
+      }
+    }
+
+    async function checkHealth() {
+      const badge = document.getElementById("statusBadge");
+      const text = document.getElementById("statusText");
+      try {
+        const res = await fetch(`${backendUrl}/health`, { signal: AbortSignal.timeout(3500) });
+        if (res.ok) {
+          badge.className = "flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+          text.textContent = "Connected";
+          return true;
+        }
+      } catch (err) {
+        badge.className = "flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-500/20 text-rose-400 border border-rose-500/30";
+        text.textContent = "Disconnected";
+        return false;
+      }
+    }
+
+    function appendMessage(sender, text) {
+      const chat = document.getElementById("chatMessages");
+      const wrapper = document.createElement("div");
+      wrapper.className = sender === "user" ? "flex justify-end" : "flex items-start space-x-3";
+
+      if (sender === "user") {
+        wrapper.innerHTML = `<div class="chat-bubble-user p-3.5 max-w-2xl text-sm leading-relaxed shadow-sm">${escapeHtml(text)}</div>`;
+      } else {
+        const htmlContent = marked.parse(text);
+        wrapper.innerHTML = `
+          <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold shadow flex-shrink-0">💡</div>
+          <div class="chat-bubble-mentor p-3.5 max-w-2xl text-sm leading-relaxed shadow-sm prose prose-invert max-w-none text-slate-200">
+            ${htmlContent}
+          </div>
+        `;
+      }
+      chat.appendChild(wrapper);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function handleSendText(e) {
+      e.preventDefault();
+      const input = document.getElementById("messageInput");
+      const text = input.value.trim();
+      if (!text) return;
+
+      appendMessage("user", text);
+      input.value = "";
+
+      const headers = {
+        "Content-Type": "application/json",
+        "X-Pod": document.getElementById("podSelect").value,
+        "X-Username": document.getElementById("userNameInput").value,
+        "X-Project-Name": document.getElementById("projectNameInput").value,
+        "X-Interaction-Mode": document.getElementById("modeSelect").value,
+        "X-Enable-Voice": "true"
+      };
+
+      try {
+        const res = await fetch(`${backendUrl}/mentor/chat`, {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({ message: text })
+        });
+
+        const replyEncoded = res.headers.get("X-Reply");
+        const reply = replyEncoded ? decodeURIComponent(replyEncoded) : "No response";
+        appendMessage("mentor", reply);
+
+        // Play audio if returned
+        const audioBlob = await res.blob();
+        if (audioBlob.size > 0) {
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const tts = document.getElementById("ttsAudio");
+          tts.src = audioUrl;
+          tts.play().catch(e => console.log("Audio autoplay prevented:", e));
+        }
+      } catch (err) {
+        appendMessage("mentor", "⚠️ Connection failed. Please check your Backend URL.");
+      }
+    }
+
+    async function toggleRecord() {
+      const btn = document.getElementById("recordBtn");
+      const icon = document.getElementById("micIcon");
+
+      if (!isRecording) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+          };
+
+          mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+            await sendAudio(audioBlob);
+            stream.getTracks().forEach(track => track.stop());
+          };
+
+          mediaRecorder.start();
+          isRecording = true;
+          btn.classList.add("bg-rose-600", "hover:bg-rose-500", "text-white", "recording-pulse");
+          btn.classList.remove("bg-slate-800", "text-slate-300");
+        } catch (err) {
+          alert("Could not access microphone: " + err.message);
+        }
+      } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        btn.classList.remove("bg-rose-600", "hover:bg-rose-500", "text-white", "recording-pulse");
+        btn.classList.add("bg-slate-800", "text-slate-300");
+      }
+    }
+
+    async function sendAudio(blob) {
+      appendMessage("user", "🎤 [Voice input...]");
+      const headers = {
+        "Content-Type": "audio/wav",
+        "X-Pod": document.getElementById("podSelect").value,
+        "X-Username": document.getElementById("userNameInput").value,
+        "X-Project-Name": document.getElementById("projectNameInput").value,
+        "X-Interaction-Mode": document.getElementById("modeSelect").value,
+        "X-Enable-Voice": "true"
+      };
+
+      try {
+        const res = await fetch(`${backendUrl}/voice`, {
+          method: "POST",
+          headers: headers,
+          body: blob
+        });
+
+        const transcriptEncoded = res.headers.get("X-Transcript");
+        if (transcriptEncoded) {
+          const transcript = decodeURIComponent(transcriptEncoded);
+          // Update last user bubble with transcript
+          const bubbles = document.querySelectorAll(".chat-bubble-user");
+          if (bubbles.length > 0) {
+            bubbles[bubbles.length - 1].textContent = transcript;
+          }
+        }
+
+        const replyEncoded = res.headers.get("X-Reply");
+        const reply = replyEncoded ? decodeURIComponent(replyEncoded) : "Response received";
+        appendMessage("mentor", reply);
+
+        const audioBlob = await res.blob();
+        if (audioBlob.size > 0) {
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const tts = document.getElementById("ttsAudio");
+          tts.src = audioUrl;
+          tts.play().catch(e => console.log("Audio play error:", e));
+        }
+      } catch (err) {
+        appendMessage("mentor", "⚠️ Voice processing failed. Please check backend connection.");
+      }
+    }
+
+    async function resetSession() {
+      if (confirm("Reset current conversation session?")) {
+        try {
+          await fetch(`${backendUrl}/reset`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              username: document.getElementById("userNameInput").value,
+              project_name: document.getElementById("projectNameInput").value
+            })
+          });
+          document.getElementById("chatMessages").innerHTML = "";
+          appendMessage("mentor", "Session has been reset. Let's start fresh!");
+        } catch (e) {
+          alert("Reset request failed: " + e.message);
+        }
+      }
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/[&<>"']/g, (m) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+      }[m]));
+    }
+  </script>
+</body>
+</html>
