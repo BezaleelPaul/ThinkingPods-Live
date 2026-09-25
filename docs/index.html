@@ -300,36 +300,75 @@
       appendMessage("user", text);
       input.value = "";
 
-      const headers = {
-        "Content-Type": "application/json",
-        "X-Pod": document.getElementById("podSelect").value,
-        "X-Username": document.getElementById("userNameInput").value,
-        "X-Project-Name": document.getElementById("projectNameInput").value,
-        "X-Interaction-Mode": document.getElementById("modeSelect").value,
-        "X-Enable-Voice": "true"
+      // Show thinking indicator
+      const thinkingId = "thinking-" + Date.now();
+      const chat = document.getElementById("chatMessages");
+      const thinkingWrapper = document.createElement("div");
+      thinkingWrapper.id = thinkingId;
+      thinkingWrapper.className = "flex items-start space-x-3";
+      thinkingWrapper.innerHTML = `
+        <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold shadow flex-shrink-0 animate-pulse">💡</div>
+        <div class="chat-bubble-mentor p-3.5 max-w-2xl text-sm leading-relaxed text-slate-400 italic">Thinking...</div>
+      `;
+      chat.appendChild(thinkingWrapper);
+      chat.scrollTop = chat.scrollHeight;
+
+      const payload = {
+        text: text,
+        message: text,
+        pod: document.getElementById("podSelect").value,
+        username: document.getElementById("userNameInput").value,
+        project_name: document.getElementById("projectNameInput").value,
+        interaction_mode: document.getElementById("modeSelect").value,
+        enable_voice: true
       };
 
       try {
-        const res = await fetch(`${backendUrl}/mentor/chat`, {
+        const res = await fetch(`${backendUrl}/text`, {
           method: "POST",
-          headers: headers,
-          body: JSON.stringify({ message: text })
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
         });
 
-        const replyEncoded = res.headers.get("X-Reply");
-        const reply = replyEncoded ? decodeURIComponent(replyEncoded) : "No response";
-        appendMessage("mentor", reply);
+        document.getElementById(thinkingId)?.remove();
 
-        // Play audio if returned
-        const audioBlob = await res.blob();
-        if (audioBlob.size > 0) {
-          const audioUrl = URL.createObjectURL(audioBlob);
-          const tts = document.getElementById("ttsAudio");
-          tts.src = audioUrl;
-          tts.play().catch(e => console.log("Audio autoplay prevented:", e));
+        if (!res.ok) {
+          let errText = await res.text();
+          try {
+            const errJson = JSON.parse(errText);
+            errText = errJson.error || errJson.detail || errText;
+          } catch(e) {}
+          appendMessage("mentor", `⚠️ Server returned error (${res.status}): ${errText}`);
+          return;
         }
+
+        const replyEncoded = res.headers.get("X-Reply");
+        let reply = replyEncoded ? decodeURIComponent(replyEncoded) : "";
+        if (!reply) {
+          const bodyText = await res.text();
+          try {
+            const bodyJson = JSON.parse(bodyText);
+            reply = bodyJson.reply || bodyJson.requirement || bodyText;
+          } catch(e) {
+            reply = bodyText;
+          }
+        }
+
+        appendMessage("mentor", reply || "Received empty reply.");
+
+        // Play audio if returned in body
+        try {
+          const audioBlob = await res.blob();
+          if (audioBlob.size > 100) {
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const tts = document.getElementById("ttsAudio");
+            tts.src = audioUrl;
+            tts.play().catch(e => console.log("Audio autoplay prevented:", e));
+          }
+        } catch(e) {}
       } catch (err) {
-        appendMessage("mentor", "⚠️ Connection failed. Please check your Backend URL.");
+        document.getElementById(thinkingId)?.remove();
+        appendMessage("mentor", `⚠️ Request failed: ${err.message}. Please check if the backend is running.`);
       }
     }
 

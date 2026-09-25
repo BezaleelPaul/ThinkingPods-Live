@@ -431,8 +431,9 @@ def start(data: dict = Body(...)):
     return Response(content=audio, media_type="audio/wav", headers=headers)
 
 @app.post("/text")
+@app.post("/mentor/chat")
 def text_input(data: dict = Body(...)):
-    user_text = data.get("text", "")
+    user_text = data.get("text") or data.get("message") or ""
     pod = data.get("pod", "general")
     username = data.get("username", "User")
     project_name = data.get("project_name", "MyProject")
