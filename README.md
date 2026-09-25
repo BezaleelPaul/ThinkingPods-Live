@@ -1,7 +1,7 @@
 # ReqGPT / ThinkingPods — AI Design Thinking Assistant
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/VenkataAdityaS125/ThinkingPods/blob/main/ThinkingPods_Cloud.ipynb)
-[![Live Web App](https://img.shields.io/badge/Live_App-GitHub_Pages-blue?logo=github)](https://VenkataAdityaS125.github.io/ThinkingPods/)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/BezaleelPaul/ThinkingPods-Live/blob/main/ThinkingPods_Cloud.ipynb)
+[![Live Web App](https://img.shields.io/badge/Live_App-GitHub_Pages-blue?logo=github)](https://bezaleelpaul.github.io/ThinkingPods-Live/)
 
 An offline-first, local AI assistant for Design Thinking sessions (Empathize, Discovery, and Coaching).
 
@@ -136,7 +136,7 @@ Use the included 1-click Cloudflare Tunnel script to generate a secure, temporar
 
 ### Method 2: 1-Click Google Cloud Hosting (100% Free · 12.7 GB RAM & GPU)
 Run ThinkingPods entirely on Google Cloud without using your personal computer's CPU or memory:
-1. Click the **[Open in Colab](https://colab.research.google.com/github/VenkataAdityaS125/ThinkingPods/blob/main/ThinkingPods_Cloud.ipynb)** badge at the top of the repository.
+1. Click the **[Open in Colab](https://colab.research.google.com/github/BezaleelPaul/ThinkingPods-Live/blob/main/ThinkingPods_Cloud.ipynb)** badge at the top of the repository.
 2. In Google Colab, click **Runtime ➡️ Run all**.
 3. It will provision Google's high-speed cloud environment, start Ollama, boot the FastAPI backend and Streamlit UI, and output a live `https://....trycloudflare.com` link.
 4. Your computer usage is 0%, and it runs on Google's free 12.7 GB RAM and NVIDIA GPU.
