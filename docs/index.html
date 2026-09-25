@@ -156,12 +156,14 @@
 
       <div>
         <label class="text-xs font-semibold text-slate-300 block mb-1">FastAPI Backend URL</label>
-        <input id="backendUrlInput" type="text" placeholder="https://....trycloudflare.com or http://127.0.0.1:8000" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" />
+        <input id="backendUrlInput" type="text" placeholder="https://....trycloudflare.com" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" />
       </div>
 
-      <div class="flex justify-end space-x-2 pt-2">
-        <button onclick="saveBackendUrl()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-lg text-sm transition">
-          Save & Connect
+      <div id="modalStatus" class="text-xs min-h-[1.5rem] flex items-center"></div>
+
+      <div class="flex justify-end space-x-2 pt-1">
+        <button id="connectBtn" onclick="saveBackendUrl()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-lg text-sm transition flex items-center justify-center space-x-2">
+          <span>Save & Connect</span>
         </button>
       </div>
     </div>
@@ -169,7 +171,7 @@
 
   <script>
     // State
-    let backendUrl = localStorage.getItem("thinkingpods_backend_url") || "http://127.0.0.1:8000";
+    let backendUrl = localStorage.getItem("thinkingpods_backend_url") || "";
     let mediaRecorder = null;
     let audioChunks = [];
     let isRecording = false;
@@ -177,30 +179,86 @@
     // Initialization
     document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("backendUrlInput").value = backendUrl;
-      checkHealth();
-      setInterval(checkHealth, 10000);
+      if (backendUrl) {
+        checkHealth();
+      } else {
+        const badge = document.getElementById("statusBadge");
+        const text = document.getElementById("statusText");
+        badge.className = "flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30";
+        text.textContent = "Click to Connect";
+      }
+      setInterval(() => {
+        if (backendUrl) checkHealth();
+      }, 10000);
       mermaid.initialize({ startOnLoad: true, theme: 'dark' });
     });
 
     function toggleModal(show) {
       document.getElementById("backendModal").classList.toggle("hidden", !show);
+      if (show) {
+        document.getElementById("modalStatus").innerHTML = "";
+      }
     }
 
-    function saveBackendUrl() {
-      let val = document.getElementById("backendUrlInput").value.trim().replace(/\/$/, "");
-      if (val) {
-        backendUrl = val;
-        localStorage.setItem("thinkingpods_backend_url", backendUrl);
-        toggleModal(false);
-        checkHealth();
+    function sanitizeUrl(raw) {
+      let val = raw.trim();
+      if (!val) return "";
+      if (!val.startsWith("http://") && !val.startsWith("https://")) {
+        val = "https://" + val;
+      }
+      try {
+        const u = new URL(val);
+        return u.origin;
+      } catch (e) {
+        return val.replace(/\/$/, "");
+      }
+    }
+
+    async function saveBackendUrl() {
+      const rawInput = document.getElementById("backendUrlInput").value;
+      const cleanUrl = sanitizeUrl(rawInput);
+      const statusEl = document.getElementById("modalStatus");
+      const btn = document.getElementById("connectBtn");
+
+      if (!cleanUrl) {
+        statusEl.innerHTML = '<span class="text-rose-400">Please enter a valid URL.</span>';
+        return;
+      }
+
+      statusEl.innerHTML = '<span class="text-amber-400 animate-pulse">⏳ Testing connection...</span>';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`${cleanUrl}/health`, { signal: AbortSignal.timeout(10000) });
+        if (res.ok) {
+          backendUrl = cleanUrl;
+          localStorage.setItem("thinkingpods_backend_url", backendUrl);
+          document.getElementById("backendUrlInput").value = backendUrl;
+          statusEl.innerHTML = '<span class="text-emerald-400">✅ Connected successfully!</span>';
+          setTimeout(() => {
+            toggleModal(false);
+            checkHealth();
+          }, 800);
+        } else {
+          statusEl.innerHTML = `<span class="text-rose-400">Server returned status ${res.status}.</span>`;
+        }
+      } catch (err) {
+        statusEl.innerHTML = '<span class="text-rose-400">❌ Failed to connect. Check if Colab is running.</span>';
+      } finally {
+        btn.disabled = false;
       }
     }
 
     async function checkHealth() {
       const badge = document.getElementById("statusBadge");
       const text = document.getElementById("statusText");
+      if (!backendUrl) {
+        badge.className = "flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-400 border border-amber-500/30";
+        text.textContent = "Click to Connect";
+        return false;
+      }
       try {
-        const res = await fetch(`${backendUrl}/health`, { signal: AbortSignal.timeout(3500) });
+        const res = await fetch(`${backendUrl}/health`, { signal: AbortSignal.timeout(8000) });
         if (res.ok) {
           badge.className = "flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
           text.textContent = "Connected";
