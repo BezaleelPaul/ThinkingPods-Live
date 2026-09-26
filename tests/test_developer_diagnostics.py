@@ -310,5 +310,53 @@ class TestDiagnosticsLivePipeline(unittest.TestCase):
         self.assertEqual(capture["hybrid_decision"]["llm_invoked"], True)
 
 
+class TestReplyEnforcementSection(unittest.TestCase):
+    """The console section reports the per-turn guard outcome."""
+
+    @staticmethod
+    def _session(blocked=0):
+        sd = SessionData()
+        sd.reply_enforcement_blocked = blocked
+        return sd
+
+    def test_blocked_turn_shows_reason_and_counter(self):
+        sec = mentor._build_reply_enforcement_section(
+            {"enforce_blocked": True, "enforce_reason": "advice_marker"},
+            self._session(blocked=3),
+        )
+        self.assertEqual(sec["This Turn"], "Blocked (advice_marker)")
+        self.assertEqual(sec["Session Blocked Replies"], 3)
+
+    def test_passing_turn_reports_passed(self):
+        sec = mentor._build_reply_enforcement_section(
+            {"enforce_blocked": False, "enforce_reason": ""},
+            self._session(blocked=2),
+        )
+        self.assertEqual(sec["This Turn"], "Passed")
+        self.assertEqual(sec["Session Blocked Replies"], 2)
+
+    def test_no_record_and_no_blocks_omits_section(self):
+        self.assertEqual(
+            mentor._build_reply_enforcement_section({}, self._session()), {}
+        )
+
+    def test_session_counter_round_trips(self):
+        sd = SessionData(reply_enforcement_blocked=4)
+        again = SessionData.from_dict(sd.to_dict())
+        self.assertEqual(again.reply_enforcement_blocked, 4)
+
+    def test_live_turn_emits_the_section(self):
+        reply, _s, _t, diagnostics = process_mentor_turn(
+            "students keep missing deadlines",
+            username="enf_live", project_name="enf_live_proj",
+        )
+        self.assertTrue(reply and reply.strip())
+        sec = diagnostics.get("ReplyEnforcement")
+        self.assertIsInstance(sec, dict)
+        turn = sec.get("This Turn")
+        self.assertTrue(
+            turn == "Passed" or str(turn).startswith("Blocked"), turn)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

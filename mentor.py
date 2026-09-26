@@ -33,7 +33,12 @@ from module5 import EmpathizeSummary, LifecycleDecision, LifecycleManager, Summa
 
 # Pipeline sub-modules — internal-use imports
 from session_pipeline import _finalize_session, _prepare_turn
-from extraction_pipeline import InputProcessor, RuleBasedExtractor, merge_extracted_to_state
+from extraction_pipeline import (
+    InputProcessor,
+    RuleBasedExtractor,
+    merge_extracted_to_state,
+    rule_fields_missed_by_llm,
+)
 from conversation_pipeline import _apply_extraction_to_state, _build_journey_fallback, enforce_mentor_reply
 
 # Observation-only rule-vs-LLM extraction comparison (Developer Console + audit)
@@ -944,6 +949,7 @@ def _build_diagnostics(session_data, objective, response_strategy, lifecycle_dec
         "MentorDecision": _build_mentor_decision_section(capture),
         "MentorDecisionSummary": _build_mentor_decision_summary_section(session_data),
         "ConversationStyle": _build_conversation_style_section(capture),
+        "ReplyEnforcement": _build_reply_enforcement_section(capture, session_data),
         "ConversationStyleSummary": _build_conversation_style_summary_section(session_data),
         "ProductExperience": _build_product_experience_section(capture),
         "ProductExperienceSummary": _build_product_experience_summary_section(session_data),
@@ -1197,6 +1203,26 @@ def _build_conversation_style_section(capture):
     return conversation_style_diagnostics_section(record)
 
 
+
+def _build_reply_enforcement_section(capture, session_data):
+    """Developer Console projection of the reply-enforcement guard.
+
+    Shows whether THIS turn's LLM reply passed enforce_mentor_reply or was
+    swapped for the deterministic template fallback, plus the session-wide
+    blocked-reply counter. Observation only — never feeds a decision.
+    """
+    blocked = (capture or {}).get("enforce_blocked")
+    reason = (capture or {}).get("enforce_reason") or ""
+    count = int(getattr(session_data, "reply_enforcement_blocked", 0) or 0)
+    if blocked is None and not count:
+        return {}
+    out = {}
+    if blocked is not None:
+        out["This Turn"] = f"Blocked ({reason})" if blocked else "Passed"
+    if count:
+        out["Session Blocked Replies"] = count
+    return out
+
 def _build_conversation_style_summary_section(session_data):
     """Measurement-only running aggregate of per-turn reply-style audits
     for this session. Read-only projection of
@@ -1343,6 +1369,31 @@ def _extract_and_update_state(user_message, project_state, session_data, model_n
             previous_user_message=user_message,
             _timing=_timing,
         )
+
+        if applied:
+            # The gate may have forced the LLM to run while the deterministic
+            # extraction already captured the CURRENT objective. Only the LLM
+            # batch is applied above, so re-apply the objective's own rule
+            # fact when the model did not restate it — otherwise the mentor
+            # re-asks a question the user just answered. Scoped to the
+            # objective's field: out-of-turn rule values never leak into
+            # state or summaries, and an LLM field is never overwritten.
+            _obj_field = hybrid_decision.get("objective_field")
+            _rule_extras = (
+                rule_fields_missed_by_llm(
+                    rule_observation,
+                    extraction_result.updates,
+                    only_state_field=_obj_field,
+                )
+                if _obj_field
+                else {}
+            )
+            if _rule_extras:
+                merge_extracted_to_state(
+                    project_state, session_data, _rule_extras, _timing=_timing
+                )
+                if _capture is not None:
+                    _capture["rule_based_extraction"] = _rule_extras
 
         if not applied:
             # The LLM extraction produced nothing usable (NO_UPDATE/AMBIGUOUS/
@@ -2007,6 +2058,7 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
             )
             prompt = build_dynamic_prompt(
                 brief=brief,
+                project_state=project_state,
                 relevant_context_text=render_relevant_context(snippets),
                 user_message=user_message,
                 previous_assistant_message=last_assistant_msg,
@@ -2078,11 +2130,17 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
             # permit a question-less reply; the question remains the normal
             # mechanism everywhere else.
             allow_statement=(dt_paused or brief.statement_allowed),
+            capture=_capture,
         )
     except Exception as e:
         print(f"LLM question generation failed, using template fallback: {e}")
+        if _capture is not None:
+            _capture["enforce_blocked"] = True
+            _capture["enforce_reason"] = "llm_error"
     t_llm_end = time.perf_counter()
     _timing["llm_ms"] = (t_llm_end - t_llm_start) * 1000
+    if _capture is not None and _capture.get("enforce_blocked"):
+        session_data.reply_enforcement_blocked += 1
 
     # Semantic de-duplication guard: if the produced question repeats a family
     # that was already asked (and the answers for that field were sufficient,

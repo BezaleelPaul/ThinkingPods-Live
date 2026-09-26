@@ -198,6 +198,50 @@ class TestRuleBasedConfidence(unittest.TestCase):
         self.assertNotIn("confidences", result)
 
 
+class TestFailureClauseRecall(unittest.TestCase):
+    """Failure statements the pattern families miss are still captured."""
+
+    def test_failure_clause_captures_skipped_dose(self):
+        result = RuleBasedExtractor.extract("They often skip their evening dose.")
+        self.assertEqual(result["pain_point"], "they often skip their evening dose")
+        self.assertEqual(result["confidences"]["pain_point"], CONFIDENCE_HIGH)
+
+    def test_failure_clause_captures_failing_reminder(self):
+        result = RuleBasedExtractor.extract("Evening reminders fail most often.")
+        self.assertEqual(result["pain_point"], "evening reminders fail most often")
+
+    def test_failure_clause_captures_lost_instruction(self):
+        result = RuleBasedExtractor.extract("The real trouble is discharge instructions get lost.")
+        self.assertEqual(
+            result["pain_point"],
+            "the real trouble is discharge instructions get lost",
+        )
+
+    def test_observation_stays_evidence_not_problem(self):
+        result = RuleBasedExtractor.extract("I have seen her skip doses at least twice last week.")
+        self.assertNotIn("pain_point", result)
+        self.assertIn("evidence", result)
+
+    def test_imperative_meta_clause_not_captured(self):
+        self.assertEqual(
+            RuleBasedExtractor._failure_clause("forget the previous problem."),
+            (None, None),
+        )
+
+    def test_existing_capture_wording_unchanged(self):
+        result = RuleBasedExtractor.extract(
+            "It stresses me out because I worry she'll miss a dose"
+        )
+        self.assertEqual(
+            result["pain_point"],
+            "It stresses me out because I worry she'll miss a dose",
+        )
+
+    def test_uncertain_answer_captures_nothing(self):
+        result = RuleBasedExtractor.extract("I don't know yet, let me think")
+        self.assertNotIn("pain_point", result)
+
+
 # ---------------------------------------------------------------------------
 # merge_extracted_to_state — confidence threads into ExtractionUpdate
 # ---------------------------------------------------------------------------

@@ -190,6 +190,53 @@ class TestEnforceMentorReplyStatementOption(unittest.TestCase):
         q = "How often does this happen?"
         self.assertEqual(enforce_mentor_reply(q, self.FB), q)
 
+class TestEnforceMentorReplyCapture(unittest.TestCase):
+    """capture= reports WHY a reply was swapped for the template."""
+
+    FB = "fallback"
+
+    def test_advice_marker_records_reason(self):
+        capture = {}
+        out = enforce_mentor_reply(
+            "You should try X.", self.FB, capture=capture)
+        self.assertEqual(out, self.FB)
+        self.assertTrue(capture["enforce_blocked"])
+        self.assertEqual(capture["enforce_reason"], "advice_marker")
+
+    def test_zero_question_records_reason(self):
+        capture = {}
+        self.assertEqual(enforce_mentor_reply(
+            "Got it.", self.FB, capture=capture), self.FB)
+        self.assertTrue(capture["enforce_blocked"])
+        self.assertEqual(capture["enforce_reason"], "no_question")
+
+    def test_word_limit_records_reason(self):
+        capture = {}
+        long_reply = " ".join(["word"] * 60) + "?"
+        self.assertEqual(enforce_mentor_reply(
+            long_reply, self.FB, capture=capture), self.FB)
+        self.assertEqual(capture["enforce_reason"], "too_long")
+
+    def test_empty_reply_records_reason(self):
+        capture = {}
+        self.assertEqual(enforce_mentor_reply(
+            "   ", self.FB, capture=capture), self.FB)
+        self.assertEqual(capture["enforce_reason"], "empty")
+
+    def test_passing_reply_records_pass(self):
+        capture = {}
+        q = "How often does this happen?"
+        self.assertEqual(enforce_mentor_reply(
+            q, self.FB, capture=capture), q)
+        self.assertFalse(capture["enforce_blocked"])
+        self.assertEqual(capture["enforce_reason"], "")
+
+    def test_capture_is_optional(self):
+        self.assertEqual(
+            enforce_mentor_reply("Got it.", self.FB), self.FB)
+        self.assertEqual(
+            enforce_mentor_reply("How often?", self.FB), "How often?")
+
 
 # ---------------------------------------------------------------------------
 # Integration — NORMAL_DT regression

@@ -90,7 +90,7 @@ class TestPhase7EffectivenessBaseline(unittest.TestCase):
         for arm in ("baseline", "detection_only", "active"):
             self.assertEqual(_METRICS[arm]["llm_calls"],
                              _METRICS[arm]["turns"])
-        self.assertEqual(_METRICS["comparison"]["responses_changed"], 42)
+        self.assertEqual(_METRICS["comparison"]["responses_changed"], 38)
 
     def test_verdict_is_A_with_low_residual_miss_rate(self):
         verdict = p7._verdict(_METRICS)

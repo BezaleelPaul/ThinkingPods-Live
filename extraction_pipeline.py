@@ -17,6 +17,7 @@ __all__ = [
     "RuleBasedExtractor",
     "InputProcessor",
     "merge_extracted_to_state",
+    "rule_fields_missed_by_llm",
 ]
 
 import json
@@ -107,6 +108,23 @@ class RuleBasedExtractor:
         (r"\b(struggle|struggling|problem|issue|challenge|pain point)\b.{0,40}", lambda m: m.group(0)[:80], CONFIDENCE_MEDIUM),
     ]
 
+    # Failure/negation clause recall.  Fires ONLY when neither the
+    # patterns above nor the keyword fallback produced a pain_point, so
+    # every value the extractor already captures keeps its exact wording.
+    # Observation statements are excluded (the taxonomy routes those to
+    # evidence, not problems) and imperative "forget/ignore ..." clauses
+    # are skipped (they are topic-shift instructions, not problems).
+    FAILURE_VERBS = (
+        r"skip(?:s|ped|ping)?|miss(?:es|ed|ing)?|fail(?:s|ed|ing)?|"
+        r"forget(?:s|got|ting)?|los(?:e|es|t|ing)|delay(?:s|ed|ing)?|"
+        r"struggl(?:e|es|ed|ing)|overlook(?:s|ed|ing)?|ignor(?:e|es|ed|ing)"
+    )
+    _PROBLEM_CLAUSE = re.compile(rf"\b(?:{FAILURE_VERBS})\b")
+    _META_CLAUSE = re.compile(r"^(?:forget|ignore|scratch|never mind)\b")
+    _OBSERVATION = re.compile(
+        r"\b(?:i (?:have )?seen|i noticed|i observed|research shows|survey|interview)\b"
+    )
+
     MOTIVATION_PATTERNS = [
         (r"\bmy (grandmother|grandfather|grandma|grandpa|mom|dad|mother|father|parent|friend|family member)\b",
          lambda m: f"personal connection - {m.group(0)}", CONFIDENCE_HIGH),
@@ -164,6 +182,26 @@ class RuleBasedExtractor:
         return None, None
 
     @classmethod
+    def _failure_clause(cls, lower):
+        """Clause carrying a failure/negation verb (deterministic, no LLM).
+
+        Returns the first clause of the message that states something going
+        wrong — e.g. "they often skip their evening dose" — which the
+        pattern families above do not reach.  Returns (None, None) for
+        observation statements and for imperative meta instructions.
+        """
+        if cls._OBSERVATION.search(lower):
+            return None, None
+        for clause in re.split(r"[.;!?\n]", lower):
+            clause = " ".join(clause.split())
+            if not clause or not cls._PROBLEM_CLAUSE.search(clause):
+                continue
+            if cls._META_CLAUSE.match(clause):
+                continue
+            return clause[:100], CONFIDENCE_HIGH
+        return None, None
+
+    @classmethod
     def extract(cls, user_message, project_name="MyProject", _timing=None):
         _pre = time.perf_counter() if _timing is not None else None
         text = user_message.strip()
@@ -191,6 +229,11 @@ class RuleBasedExtractor:
         elif any(w in lower for w in ("problem", "issue", "struggle", "forget", "miss")):
             result["pain_point"] = text[:120]
             confidences["pain_point"] = CONFIDENCE_MEDIUM
+        if not result.get("pain_point"):
+            problem, pconf = cls._failure_clause(lower)
+            if problem:
+                result["pain_point"] = problem
+                confidences["pain_point"] = pconf
 
         motivation, conf = cls._first_match(text, cls.MOTIVATION_PATTERNS)
         if motivation:
@@ -333,19 +376,22 @@ Use null for unknown scalar fields. Use [] for empty lists."""
         return {}
 
 
+# Legacy extraction key -> (StateField, is_list). Shared by
+# merge_extracted_to_state and rule_fields_missed_by_llm.
+_LEGACY_TO_STATE = {
+    "target_audience": (StateField.PERSONAS, True),
+    "pain_point": (StateField.PROBLEMS, True),
+    "motivation": (StateField.PAIN_POINTS, True),
+    "existing_solution": (StateField.CURRENT_SOLUTIONS, True),
+    "evidence": (StateField.EVIDENCE, True),
+    "impact": (StateField.IMPACTS, True),
+    "frequency": (StateField.FREQUENCY, False),
+}
+
+
 def merge_extracted_to_state(state: ProjectState, session_data: SessionData, extracted: dict, _timing=None) -> None:
     if not extracted:
         return
-
-    _LEGACY_TO_STATE = {
-        "target_audience": (StateField.PERSONAS, True),
-        "pain_point": (StateField.PROBLEMS, True),
-        "motivation": (StateField.PAIN_POINTS, True),
-        "existing_solution": (StateField.CURRENT_SOLUTIONS, True),
-        "evidence": (StateField.EVIDENCE, True),
-        "impact": (StateField.IMPACTS, True),
-        "frequency": (StateField.FREQUENCY, False),
-    }
 
     mgr = StateManager(state)
     updates = []
@@ -380,3 +426,43 @@ def merge_extracted_to_state(state: ProjectState, session_data: SessionData, ext
             session_data.open_questions.append(val)
     if _s is not None:
         add_stage_ms(_timing, "merge_session", _s, time.perf_counter())
+
+def rule_fields_missed_by_llm(rule_observation, llm_updates, only_state_field=None) -> dict:
+    """Legacy fields of ``rule_observation`` the LLM extraction left out.
+
+    The Semantic Complexity Gate can force the LLM to run even when the
+    deterministic extraction already captured the objective, and only the
+    LLM batch is applied in that path. Any rule fact the model did not
+    restate would be dropped, so this returns the missing fields in the
+    legacy dict shape ``merge_extracted_to_state`` consumes (plus their
+    confidences). Fields the LLM did produce are excluded, so the LLM
+    always wins a conflict and nothing is applied twice.
+
+    ``only_state_field`` scopes the result to a single StateField (enum
+    or its value string): pass the current objective's target so only
+    the fact this turn's objective still needs is recovered, while
+    out-of-turn rule values never leak into state or summaries.
+    None keeps the unscoped behavior.
+    """
+    llm_fields = {getattr(u, "field", u) for u in (llm_updates or [])}
+    if only_state_field is None:
+        allowed = None
+    else:
+        allowed = (
+            only_state_field
+            if isinstance(only_state_field, StateField)
+            else StateField(only_state_field)
+        )
+    out: dict = {}
+    for legacy_field, (state_field, _is_list) in _LEGACY_TO_STATE.items():
+        if allowed is not None and state_field is not allowed:
+            continue
+        value = clean_val((rule_observation or {}).get(legacy_field))
+        if value and state_field not in llm_fields:
+            out[legacy_field] = value
+    if out:
+        confidences = (rule_observation or {}).get("confidences") or {}
+        kept = {k: confidences[k] for k in out if k in confidences}
+        if kept:
+            out["confidences"] = kept
+    return out

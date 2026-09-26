@@ -4,7 +4,7 @@
 
 - Turns evaluated per arm: 108 across 40 novel scenarios + 1 control
 - NET improvement (prevented − introduced): **24** (prevented 25 / introduced 1)
-- Responses changed by layer: 42
+- Responses changed by layer: 38
 - Extra LLM calls: 0 (one attempt/turn in every arm)
 
 ## Methodology
@@ -33,7 +33,7 @@
 
 - turns=108 pauses=0 acks=0 suppressions=0
 - total failures=30 {'MISSED_CONVERSATIONAL_MOVE': 30}
-- median latency=50.27 ms (avg 49.28), llm_attempts=108
+- median latency=47.63 ms (avg 44.36), llm_attempts=108
 
 | Criterion | Avg (0-2) |
 |---|---|
@@ -52,7 +52,7 @@
 
 - turns=108 pauses=0 acks=2 suppressions=0
 - total failures=30 {'MISSED_CONVERSATIONAL_MOVE': 30}
-- median latency=52.04 ms (avg 50.52), llm_attempts=108
+- median latency=49.1 ms (avg 46.59), llm_attempts=108
 
 | Criterion | Avg (0-2) |
 |---|---|
@@ -71,7 +71,7 @@
 
 - turns=108 pauses=27 acks=2 suppressions=11
 - total failures=6 {'MISSED_CONVERSATIONAL_MOVE': 5, 'FALSE_PAUSE': 1}
-- median latency=52.25 ms (avg 50.63), llm_attempts=108
+- median latency=48.18 ms (avg 45.04), llm_attempts=108
 
 | Criterion | Avg (0-2) |
 |---|---|
@@ -139,9 +139,9 @@
 
 | Arm | median ms | avg ms | llm attempts |
 |---|---|---|---|
-| baseline | 50.27 | 49.28 | 108 |
-| detection_only | 52.04 | 50.52 | 108 |
-| active | 52.25 | 50.63 | 108 |
+| baseline | 47.63 | 44.36 | 108 |
+| detection_only | 49.1 | 46.59 | 108 |
+| active | 48.18 | 45.04 | 108 |
 
 ## Safety
 
@@ -152,15 +152,9 @@
 - `corr_trying_to_say` T2 [correction] “That's not quite what I was trying to say.”
   - BASELINE: "That's a real problem taking shape. To make it concrete, could you give me an example of the problem they run "
   - LAYER(CORRECTION/HIGH): "Got it - thanks for clarifying. Tell me a bit more about what you have in mind whenever you're ready."
-- `corr_trying_to_say` T3 [normal] “Seniors skip refills every month.”
-  - BASELINE: "That's a useful angle. To understand why it weighs on people, why does this problem matter to the people exper"
-  - LAYER(NORMAL_DT/HIGH): "That's a real problem taking shape. To make it concrete, could you give me an example of the problem they run "
 - `corr_assuming` T2 [correction] “You're assuming something I didn't say.”
   - BASELINE: "That's a real problem taking shape. To make it concrete, could you give me an example of the problem they run "
   - LAYER(CORRECTION/HIGH): "Got it - thanks for clarifying. Tell me a bit more about what you have in mind whenever you're ready."
-- `corr_assuming` T3 [normal] “It's the evening dose that gets skipped.”
-  - BASELINE: "That's a useful angle. To understand why it weighs on people, why does this problem matter to the people exper"
-  - LAYER(NORMAL_DT/HIGH): "That's a real problem taking shape. To make it concrete, could you give me an example of the problem they run "
 - `corr_situation_different` T2 [correction] “Actually, my situation is different.”
   - BASELINE: "That's a real problem taking shape. To make it concrete, could you give me an example of the problem they run "
   - LAYER(CORRECTION/HIGH): "Got it - thanks for clarifying. Tell me a bit more about what you have in mind whenever you're ready."
@@ -183,6 +177,12 @@
   - BASELINE: "That's a useful angle. To understand why it weighs on people, why does this problem matter to the people exper"
   - LAYER(NORMAL_DT/HIGH): "That's a real problem taking shape. To make it concrete, could you give me an example of the problem they run "
 - `top_leave_aside` T2 [topic_shift] “Let's leave that aside for now.”
+  - BASELINE: "That's a real problem taking shape. To make it concrete, could you give me an example of the problem they run "
+  - LAYER(TOPIC_SHIFT/HIGH): "Understood - let's switch to the new direction. Tell me about what you're working on now."
+- `top_leave_aside` T3 [normal] “I'm exploring hand hygiene compliance now.”
+  - BASELINE: "That's a useful angle. To understand why it weighs on people, why does this problem matter to the people exper"
+  - LAYER(NORMAL_DT/HIGH): "That's a real problem taking shape. To make it concrete, could you give me an example of the problem they run "
+- `top_discuss_different` T2 [topic_shift] “I want to discuss something completely different.”
   - BASELINE: "That's a real problem taking shape. To make it concrete, could you give me an example of the problem they run "
   - LAYER(TOPIC_SHIFT/HIGH): "Understood - let's switch to the new direction. Tell me about what you're working on now."
 

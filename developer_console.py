@@ -652,6 +652,7 @@ SECTION_CATEGORIES: Dict[str, str] = {
     "ExtractionAccuracy": "Quality Audits",
     "ExtractionAccuracySummary": "Quality Audits",
     "ConversationStyle": "Quality Audits",
+    "ReplyEnforcement": "Quality Audits",
     "ConversationStyleSummary": "Quality Audits",
     "ProductExperience": "Quality Audits",
     "ProductExperienceSummary": "Quality Audits",
@@ -1110,6 +1111,16 @@ def _status_prompt(items: Any) -> tuple:
     return SectionStatus.HEALTHY, ""
 
 
+def _status_reply_enforcement(items: Any) -> tuple:
+    """Warning while this turn's reply was replaced by the template."""
+    if not isinstance(items, dict):
+        return SectionStatus.HEALTHY, ""
+    this_turn = str(items.get("This Turn") or "")
+    if this_turn.startswith("Blocked"):
+        return SectionStatus.WARNING, "template fallback this turn"
+    return SectionStatus.HEALTHY, ""
+
+
 _SECTION_STATUS_RULES: Dict[str, Any] = {
     "ProjectState": _status_project_state,
     "StateChanges": _status_state_changes,
@@ -1121,6 +1132,7 @@ _SECTION_STATUS_RULES: Dict[str, Any] = {
     "MentorDecision": _status_mentor_decision,
     "MentorDecisionSummary": _status_mentor_decision_summary,
     "ConversationStyle": _status_conversation_style,
+    "ReplyEnforcement": _status_reply_enforcement,
     "ConversationStyleSummary": _status_conversation_style_summary,
     "ConversationFailure": _status_conversation_failure,
     "ConversationFailureSummary": _status_conversation_failure_summary,

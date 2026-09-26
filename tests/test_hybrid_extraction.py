@@ -272,5 +272,73 @@ class TestHybridWiringLivePipeline(unittest.TestCase):
         )
 
 
+
+
+class TestRuleFieldsMissedByLLM(unittest.TestCase):
+    """Rule facts the LLM did not restate stay applicable."""
+
+    @staticmethod
+    def _update(field):
+        from memory_extractor import ExtractionUpdate, Operation, StateField
+        return ExtractionUpdate(Operation.ADD, StateField(field), "x")
+
+    def test_fields_the_llm_skipped_are_returned(self):
+        from extraction_pipeline import rule_fields_missed_by_llm
+        rules = {
+            "target_audience": "elderly patients",
+            "frequency": "often",
+            "confidences": {"frequency": 0.82},
+        }
+        out = rule_fields_missed_by_llm(rules, [self._update("personas")])
+        self.assertEqual(out.get("frequency"), "often")
+        self.assertNotIn("target_audience", out)
+        self.assertEqual(out["confidences"], {"frequency": 0.82})
+
+    def test_fields_the_llm_already_produced_are_excluded(self):
+        from extraction_pipeline import rule_fields_missed_by_llm
+        rules = {"frequency": "often", "target_audience": "elderly"}
+        out = rule_fields_missed_by_llm(
+            rules, [self._update("personas"), self._update("frequency")])
+        self.assertNotIn("frequency", out)
+        self.assertNotIn("target_audience", out)
+
+    def test_empty_rule_observation_returns_empty(self):
+        from extraction_pipeline import rule_fields_missed_by_llm
+        self.assertEqual(rule_fields_missed_by_llm({}, []), {})
+        self.assertEqual(rule_fields_missed_by_llm(None, None), {})
+
+    def test_all_rule_fields_returned_when_llm_updates_empty(self):
+        from extraction_pipeline import rule_fields_missed_by_llm
+        rules = {"frequency": "often", "pain_point": "they skip doses"}
+        out = rule_fields_missed_by_llm(rules, [])
+        self.assertEqual(out.get("frequency"), "often")
+        self.assertEqual(out.get("pain_point"), "they skip doses")
+
+    def test_scope_limits_to_the_objective_field(self):
+        from extraction_pipeline import rule_fields_missed_by_llm
+        rules = {"frequency": "often", "pain_point": "they skip doses"}
+        out = rule_fields_missed_by_llm(
+            rules, [], only_state_field="frequency")
+        self.assertEqual(out, {"frequency": "often"})
+        out = rule_fields_missed_by_llm(
+            rules, [], only_state_field="problems")
+        self.assertEqual(out, {"pain_point": "they skip doses"})
+
+    def test_scope_accepts_state_field_enum(self):
+        from extraction_pipeline import rule_fields_missed_by_llm
+        from memory_extractor import StateField
+        rules = {"frequency": "often", "pain_point": "they skip doses"}
+        out = rule_fields_missed_by_llm(
+            rules, [], only_state_field=StateField.FREQUENCY)
+        self.assertEqual(out, {"frequency": "often"})
+
+    def test_scope_excludes_fields_the_llm_already_produced(self):
+        from extraction_pipeline import rule_fields_missed_by_llm
+        rules = {"frequency": "often"}
+        out = rule_fields_missed_by_llm(
+            rules, [self._update("frequency")],
+            only_state_field="frequency")
+        self.assertEqual(out, {})
+
 if __name__ == "__main__":
     unittest.main()

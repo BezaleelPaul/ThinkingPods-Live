@@ -264,5 +264,19 @@ class TestTreeIntegration(unittest.TestCase):
         self.assertEqual(diag, snapshot)
 
 
+class TestReplyEnforcementStatus(unittest.TestCase):
+    def test_blocked_turn_is_warning(self):
+        status, reason = section_status(
+            "ReplyEnforcement", {"This Turn": "Blocked (advice_marker)"})
+        self.assertEqual(status, SectionStatus.WARNING)
+        self.assertIn("template fallback", reason)
+
+    def test_passed_turn_is_healthy(self):
+        status, reason = section_status("ReplyEnforcement",
+                                        {"This Turn": "Passed"})
+        self.assertEqual(status, SectionStatus.HEALTHY)
+        self.assertEqual(reason, "")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

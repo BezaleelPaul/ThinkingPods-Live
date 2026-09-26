@@ -128,6 +128,10 @@ class SessionData:
     # NEVER read by any decision path — it exists solely for the Developer
     # Console "Conversation Style" block and the end-of-run report.
     conversation_style_summary: "ConversationStyleSummary" = field(default_factory=ConversationStyleSummary)
+    # Measurement-only counter: how many turns had an LLM reply replaced
+    # by the template fallback in enforce_mentor_reply (or an LLM call
+    # failure). Observation only — never read by a decision path.
+    reply_enforcement_blocked: int = 0
     # Measurement-only audit aggregate for the end-to-end product experience
     # (startup timing, session restoration, Developer Console shape/cost,
     # export size, performance timeline). NEVER read by any decision path —
@@ -164,6 +168,7 @@ class SessionData:
             "extraction_accuracy_summary": self.extraction_accuracy_summary.to_dict(),
             "mentor_decision_summary": self.mentor_decision_summary.to_dict(),
             "conversation_style_summary": self.conversation_style_summary.to_dict(),
+            "reply_enforcement_blocked": self.reply_enforcement_blocked,
             "product_experience_summary": self.product_experience_summary.to_dict(),
             "conversation_failure_summary": self.conversation_failure_summary.to_dict(),
         }
@@ -214,6 +219,7 @@ class SessionData:
             conversation_style_summary=ConversationStyleSummary.from_dict(
                 d.get("conversation_style_summary", {})
             ),
+            reply_enforcement_blocked=d.get("reply_enforcement_blocked", 0),
             product_experience_summary=ProductExperienceSummary.from_dict(
                 d.get("product_experience_summary", {})
             ),

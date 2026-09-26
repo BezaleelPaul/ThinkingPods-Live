@@ -142,10 +142,22 @@ def _build_journey_fallback(
     )
 
 
-def enforce_mentor_reply(reply, fallback, allow_summary=False, allow_statement=False):
+def enforce_mentor_reply(reply, fallback, allow_summary=False, allow_statement=False, capture=None):
+    def _blocked(reason):
+        if capture is not None:
+            capture["enforce_blocked"] = True
+            capture["enforce_reason"] = reason
+        return fallback
+
+    def _passed(text):
+        if capture is not None:
+            capture["enforce_blocked"] = False
+            capture["enforce_reason"] = ""
+        return text
+
     text = (reply or "").strip()
     if not text:
-        return fallback
+        return _blocked("empty")
 
     lower = text.lower()
     advice_markers = (
@@ -160,7 +172,7 @@ def enforce_mentor_reply(reply, fallback, allow_summary=False, allow_statement=F
         "the solution is",
     )
     if any(marker in lower for marker in advice_markers):
-        return fallback
+        return _blocked("advice_marker")
 
     question_count = text.count("?")
     if question_count == 0:
@@ -169,17 +181,17 @@ def enforce_mentor_reply(reply, fallback, allow_summary=False, allow_statement=F
         # protection above stays active in ALL cases; word limits below
         # stay active in ALL cases.
         if not allow_statement:
-            return fallback
+            return _blocked("no_question")
     elif question_count > 1:
         first_question_end = text.find("?")
         text = text[: first_question_end + 1].strip()
 
     if not allow_summary and len(text.split()) > 55:
-        return fallback
+        return _blocked("too_long")
     if allow_summary and len(text.split()) > 95:
-        return fallback
+        return _blocked("too_long")
 
-    return text
+    return _passed(text)
 
 
 def _apply_extraction_to_state(
