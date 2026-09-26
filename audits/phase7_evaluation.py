@@ -442,27 +442,66 @@ def _derive_failures(rec: dict, prev_family, prev_paused) -> tuple:
     return behav, cls
 
 
-def _apply_resumption(records: list[dict]) -> None:
+def _filled(state: dict | None) -> set[str]:
+    """ProjectState fields that actually hold a value."""
+    out = set()
+    for key, val in (state or {}).items():
+        if val in (None, "", [], {}, ()):
+            continue
+        out.add(key)
+    return out
+
+
+def _apply_resumption(records: list[dict],
+                      baseline: list[dict] | None = None) -> None:
+    """Flag turns where a pause made the conversation lose ground.
+
+    A pause freezes extraction for exactly one turn, so "the objective label
+    did not change" is NOT a failure: the label routinely stays on the same
+    objective across consecutive turns in every arm (including BASELINE,
+    which never pauses).  Requiring a label change there measured
+    turn-to-turn label churn, not resumption, and fired on 13 turns where
+    nothing was lost.
+
+    A resumption failure is *regression* — knowledge the conversation
+    already had is gone once it resumes:
+
+      * ``lost``        fields held before the pause that are missing again,
+      * ``behind``      fields the non-paused BASELINE arm holds at this
+                        turn that the pausing arm does not,
+      * ``unrecovered`` fields BASELINE captured on the paused turn itself
+                        (the content the pause suppressed) that this turn
+                        still has not recovered.
+
+    Baseline is optional; without it only the pre-pause regression check
+    runs.
+    """
+    base_by_turn = {r["turn"]: r for r in (baseline or [])}
     for i, rec in enumerate(records):
-        if rec.pop("_resumption_check", False):
-            # The current turn is the first normal turn after a pause.
-            # The pause turn (i-1) didn't advance the objective.
-            # The current turn (i) should have advanced the objective from
-            # the pre-pause state (i-2). Compare with i-2, not i-1.
-            if i >= 2:
-                pre_pause = records[i - 2]
-                # After a pause, the next normal turn should advance the
-                # objective from the pre-pause state (i-2), not stay stuck
-                # at the pause turn's frozen objective (i-1).
-                ok = (
-                    rec["objective"] is not None
-                    and pre_pause["objective"] is not None
-                    and rec["objective"] != pre_pause["objective"]
-                )
-            else:
-                ok = True  # First turn after pause, no pre-pause state to compare
-            if not ok:
-                rec.setdefault("_failures", set()).add("FAILED_RESUMPTION")
+        if not rec.pop("_resumption_check", False):
+            continue
+
+        now = _filled(rec.get("state_after"))
+        pre_pause = (_filled(records[i - 2].get("state_after"))
+                     if i >= 2 else set())
+        lost = pre_pause - now
+
+        base_now = base_by_turn.get(rec["turn"])
+        behind = ((_filled(base_now.get("state_after")) - now)
+                  if base_now else set())
+
+        dropped = set()
+        if i >= 1 and baseline is not None:
+            base_prev = base_by_turn.get(records[i - 1]["turn"])
+            if base_prev is not None:
+                dropped = (_filled(base_prev.get("state_after"))
+                           - _filled(records[i - 1].get("state_after")))
+        unrecovered = dropped - now
+
+        if lost or behind or unrecovered:
+            rec.setdefault("_failures", set()).add("FAILED_RESUMPTION")
+            # Scores were computed before this failure existed.
+            rec["_scores"] = _rubric_scores(rec)
 
 def _rubric_scores(rec: dict) -> dict:
     anno = rec["_anno"]
@@ -514,9 +553,16 @@ def evaluate(report_path: str | None = "Phase7_Effectiveness_Report.md") -> dict
     all_results = {arm: [] for arm in ARMS}
     for scenario in SCENARIOS + CONTROL_GROUP:
         for arm in ARMS:
-            records = _run_scenario_arm(scenario, arm)
-            _apply_resumption(records)
-            all_results[arm].append({"scenario": scenario, "records": records})
+            all_results[arm].append(
+                {"scenario": scenario,
+                 "records": _run_scenario_arm(scenario, arm)})
+        # Resumption needs the non-paused BASELINE arm of the SAME scenario
+        # to tell "the pause lost knowledge" apart from "the objective label
+        # simply did not move this turn".
+        base_records = all_results["baseline"][-1]["records"]
+        for arm in ARMS:
+            _apply_resumption(all_results[arm][-1]["records"],
+                              baseline=base_records)
 
     metrics = _aggregate(all_results)
     metrics["safety"] = _safety_probe()

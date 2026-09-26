@@ -3,7 +3,7 @@
 ## Executive Summary
 
 - Turns evaluated per arm: 108 across 40 novel scenarios + 1 control
-- NET improvement (prevented − introduced): **13** (prevented 27 / introduced 14)
+- NET improvement (prevented − introduced): **24** (prevented 25 / introduced 1)
 - Responses changed by layer: 42
 - Extra LLM calls: 0 (one attempt/turn in every arm)
 
@@ -33,7 +33,7 @@
 
 - turns=108 pauses=0 acks=0 suppressions=0
 - total failures=30 {'MISSED_CONVERSATIONAL_MOVE': 30}
-- median latency=33.14 ms (avg 31.24), llm_attempts=108
+- median latency=50.27 ms (avg 49.28), llm_attempts=108
 
 | Criterion | Avg (0-2) |
 |---|---|
@@ -52,7 +52,7 @@
 
 - turns=108 pauses=0 acks=2 suppressions=0
 - total failures=30 {'MISSED_CONVERSATIONAL_MOVE': 30}
-- median latency=35.47 ms (avg 32.13), llm_attempts=108
+- median latency=52.04 ms (avg 50.52), llm_attempts=108
 
 | Criterion | Avg (0-2) |
 |---|---|
@@ -70,12 +70,12 @@
 ## Arm: ACTIVE
 
 - turns=108 pauses=27 acks=2 suppressions=11
-- total failures=17 {'MISSED_CONVERSATIONAL_MOVE': 3, 'FAILED_RESUMPTION': 13, 'FALSE_PAUSE': 1}
-- median latency=33.19 ms (avg 30.92), llm_attempts=108
+- total failures=6 {'MISSED_CONVERSATIONAL_MOVE': 5, 'FALSE_PAUSE': 1}
+- median latency=52.25 ms (avg 50.63), llm_attempts=108
 
 | Criterion | Avg (0-2) |
 |---|---|
-| conversational_appropriateness | 1.926 |
+| conversational_appropriateness | 1.889 |
 | understanding | 1.926 |
 | dt_continuity | 2 |
 | information_preservation | 2 |
@@ -88,39 +88,41 @@
 
 ## Baseline vs Layer (ACTIVE)
 
-- Prevented: {'MISSED_CONVERSATIONAL_MOVE': 27}
-- Introduced: {'FAILED_RESUMPTION': 13, 'FALSE_PAUSE': 1}
-- false_pause_rate=0.0093 missed_move(layer)=0.0909 missed_move(baseline)=0.9091
+- Prevented: {'MISSED_CONVERSATIONAL_MOVE': 25}
+- Introduced: {'FALSE_PAUSE': 1}
+- false_pause_rate=0.0093 missed_move(layer)=0.1515 missed_move(baseline)=0.9091
 - information_loss layer=0.0 baseline=0.0
 - derailment(layer)=0.0 repetition layer/baseline=0/0
 
 ### Detection-only vs Active deltas
-- turns whose failure-set changed when behaviour activated: 41
-- ('corr_not_issue', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
+- turns whose failure-set changed when behaviour activated: 26
 - ('corr_trying_to_say', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
-- ('corr_trying_to_say', 3): [] -> ['FAILED_RESUMPTION']
 - ('corr_assuming', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
-- ('corr_assuming', 3): [] -> ['FAILED_RESUMPTION']
 - ('corr_situation_different', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
 - ('corr_personally', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
 - ('corr_not_the_point', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
-- ('corr_not_the_point', 3): [] -> ['FAILED_RESUMPTION']
 - ('top_moved_on', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
-- ('top_moved_on', 3): [] -> ['FAILED_RESUMPTION']
 - ('top_leave_aside', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
-- ('top_leave_aside', 3): [] -> ['FAILED_RESUMPTION']
 - ('top_discuss_different', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
 - ('top_forget_previous', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
 - ('dq_how_approach', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
-- ('dq_how_approach', 3): [] -> ['FAILED_RESUMPTION']
 - ('dq_what_try', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
-- ('dq_what_try', 3): [] -> ['FAILED_RESUMPTION']
 - ('dq_help_figure', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
+- ('dq_why_asking', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
+- ('dq_explain_why', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
+- ('conf_not_following', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
+- ('conf_mean_by_that', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
+- ('conf_not_sure_looking', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
+- ('conf_confused_about', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
+- ('hyp_budget_pure', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
+- ('hyp_with_facts', 2): ['MISSED_CONVERSATIONAL_MOVE'] -> []
 
 ### Behavioural misses remaining (novel-wording gaps)
+- corr_not_issue T2: “No, that's not really the issue.”
 - corr_misunderstood T2: “I think you misunderstood what I'm saying.”
 - top_no_longer T2: “That's no longer what I'm working on.”
 - amb_maybe_problem T2: “Maybe I'm the problem.”
+- mix_correction_info T2: “No, not the students - young doctors are the ones wh”
 ### Classification quality (ACTIVE arm, label-level)
 {"LABEL_MISS": 3, "WRONG_INTERPRETATION": 1}
 
@@ -131,15 +133,15 @@
 
 ## Resumption
 
-- FAILED_RESUMPTION (layer): 13
+- FAILED_RESUMPTION (layer): 0
 
 ## Latency / LLM calls
 
 | Arm | median ms | avg ms | llm attempts |
 |---|---|---|---|
-| baseline | 33.14 | 31.24 | 108 |
-| detection_only | 35.47 | 32.13 | 108 |
-| active | 33.19 | 30.92 | 108 |
+| baseline | 50.27 | 49.28 | 108 |
+| detection_only | 52.04 | 50.52 | 108 |
+| active | 52.25 | 50.63 | 108 |
 
 ## Safety
 
@@ -186,4 +188,4 @@
 
 ## Verdict
 
-B — PROMISING BUT NEEDS WORK: net improvement exists, but important failure modes remain (see behavioural miss list on novel wording).
+A — CLEARLY BETTER: significant prevented-failure volume with negligible regressions and low residual miss rate.
