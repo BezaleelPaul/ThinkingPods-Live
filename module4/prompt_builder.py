@@ -106,6 +106,7 @@ HARD_CONSTRAINTS = [
 def build_dynamic_prompt(
     *,
     brief=None,
+    project_state=None,
     relevant_context_text: str = "",
     user_message: str = "",
     previous_assistant_message: Optional[str] = None,
@@ -119,7 +120,8 @@ def build_dynamic_prompt(
 
     Pure formatter: ``brief`` is a ``ConversationBrief`` (or anything
     exposing the same attributes), ``relevant_context_text`` is the
-    pre-rendered 3–8 snippet block. The raw user message is passed
+    pre-rendered 3–8 snippet block. ``project_state`` is the canonical 
+    ProjectState and renders as the optional WHAT WE KNOW section.
     through verbatim (bounded) — interpretation happens in the model,
     truth stays in the application.
     """
@@ -178,6 +180,9 @@ def build_dynamic_prompt(
             "it lightly without assuming what they meant."
         )
 
+    # --- What we already know (canonical ProjectState) ----------------------
+    known_state = _render_known_state(project_state)
+
     # --- Allowed moves ------------------------------------------------------
     move_lines = []
     for move_name in allowed_moves[:6]:
@@ -212,6 +217,8 @@ def build_dynamic_prompt(
         "WHY NOW\n" + _RULE + f"\n{why_now or 'Continue building understanding of the current goal.'}",
         "WHAT HAPPENED\n" + _RULE + "\n" + "\n".join(happened),
     ]
+    if known_state:
+        sections.append("WHAT WE KNOW\n" + _RULE + "\n" + known_state)
     if is_summary and empathize_summary is not None:
         sections.append(_render_summary_section(empathize_summary))
     sections.append(
@@ -231,6 +238,38 @@ def build_dynamic_prompt(
     sections.append("USER MESSAGE\n" + _RULE + f"\n{raw_user}")
     return "\n\n".join(sections)
 
+
+_KNOWN_STATE_LIST_CAP = 6
+
+
+def _render_known_state(project_state) -> str:
+    """One line per populated ProjectState field, or "" when nothing is known.
+
+    Keeps the whole state visible to the model without the legacy
+    prompt's empty-field noise: empty fields are simply omitted.
+    """
+    if project_state is None or not hasattr(project_state, "get_list"):
+        return ""
+    lines: List[str] = []
+    for sf in StateField:
+        label = _FIELD_LABELS[sf]
+        if sf in LIST_FIELDS:
+            items = [
+                v for v in (project_state.get_list(sf) or [])
+                if isinstance(v, str) and v.strip()
+            ]
+            if not items:
+                continue
+            shown = items[:_KNOWN_STATE_LIST_CAP]
+            suffix = ""
+            if len(items) > _KNOWN_STATE_LIST_CAP:
+                suffix = f" (+{len(items) - _KNOWN_STATE_LIST_CAP} more)"
+            lines.append(f"- {label}: {'; '.join(shown)}{suffix}")
+        else:
+            value = project_state.get_scalar(sf)
+            if isinstance(value, str) and value.strip():
+                lines.append(f"- {label}: {value.strip()}")
+    return "\n".join(lines)
 
 def _dynamic_move_guidance(move_name: str) -> Optional[str]:
     """One-line guidance for an allowed move, reusing move vocabulary."""

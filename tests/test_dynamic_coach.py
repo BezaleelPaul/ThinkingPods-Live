@@ -460,5 +460,49 @@ class TestDynamicSituations(unittest.TestCase):
         self.assertEqual(state["Personas"], [])
 
 
+
+class TestKnownStateSection(unittest.TestCase):
+    """WHAT WE KNOW renders the canonical ProjectState into the prompt."""
+
+    @staticmethod
+    def _brief():
+        from conversation_brief import ConversationBrief
+        return ConversationBrief(current_objective="PROBLEMS",
+                                  why_now="Need the core problem next.")
+
+    def test_populated_state_renders_one_line_per_field(self):
+        from memory_extractor import ProjectState
+        state = ProjectState(
+            personas=["elderly people"],
+            problems=["they often skip their evening dose"],
+            frequency="often",
+        )
+        p = build_dynamic_prompt(brief=self._brief(), project_state=state,
+                                 user_message="ok")
+        self.assertIn("WHAT WE KNOW", p)
+        self.assertIn("- Personas: elderly people", p)
+        self.assertIn("- Problems: they often skip their evening dose", p)
+        self.assertIn("- Frequency: often", p)
+        self.assertLess(p.index("WHAT WE KNOW"), p.index("RELEVANT CONTEXT"))
+
+    def test_section_omitted_when_state_is_empty(self):
+        from memory_extractor import ProjectState
+        p = build_dynamic_prompt(brief=self._brief(),
+                                 project_state=ProjectState(), user_message="ok")
+        self.assertNotIn("WHAT WE KNOW", p)
+
+    def test_section_omitted_without_state_argument(self):
+        p = build_dynamic_prompt(brief=self._brief(), user_message="ok")
+        self.assertNotIn("WHAT WE KNOW", p)
+
+    def test_long_lists_are_capped(self):
+        from memory_extractor import ProjectState
+        state = ProjectState(personas=[f"persona {i}" for i in range(9)])
+        p = build_dynamic_prompt(brief=self._brief(), project_state=state,
+                                 user_message="ok")
+        self.assertIn("(+3 more)", p)
+        self.assertNotIn("persona 8", p)
+
+
 if __name__ == "__main__":
     unittest.main()
