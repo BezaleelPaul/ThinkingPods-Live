@@ -124,7 +124,9 @@ def autotweak():
     print(f" -> Calibrated Thread Allocation: {optimal_threads} threads (Physical Core & Memory Bandwidth Cap)")
     print(f" -> Calibrated Context Size: {optimal_ctx} tokens (Aggressive Context Truncation)")
     
-    base_model = os.getenv("MENTOR_MODEL", "qwen2.5:3b")
+    base_model = os.getenv("OLLAMA_BASE_MODEL") or os.getenv("MENTOR_BASE_MODEL") or os.getenv("MENTOR_MODEL", "qwen2.5:3b")
+    if base_model == "optimized-pods":
+        base_model = "qwen2.5:3b"
     
     # Check if Ollama service is reachable and if base model is available
     print("\nVerifying local Ollama service connection...")

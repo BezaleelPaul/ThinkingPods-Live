@@ -41,6 +41,22 @@ model, _ = torch.hub.load(
 print("TTS model cached successfully")
 ```
 
+### 4. Cache HuggingFace Classification Models (optional)
+
+The observation-only Sentiment / Message Classification features
+(`SENTIMENT_ENABLED` / `CLASSIFIER_ENABLED`, both OFF by default) use
+pretrained HuggingFace models. Pre-download them once while online so the
+features also work offline:
+
+```bash
+pip install transformers
+python -c "from transformers import pipeline; pipeline('sentiment-analysis', model='distilbert-base-uncased-finetuned-sst-2-english'); pipeline('zero-shot-classification', model='valhalla/distilbart-mnli-12-1'); print('classifier models cached')"
+```
+
+Models are cached under `~/.cache/huggingface/`. If the flags are off or
+the models are missing, the pipeline degrades to `Status=unavailable` in the
+Developer Console — the conversation itself is never affected.
+
 ## Offline Usage Instructions
 
 Once the above setup is complete, you can use ReqGPT entirely offline:

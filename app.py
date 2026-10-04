@@ -670,442 +670,617 @@ st.set_page_config(
 # --- Inject Beautiful Cyberpunk / High-Tech CSS ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
-    
-    /* General Font override */
-    html, body, [class*="css"], .stMarkdown {
-        font-family: 'Outfit', sans-serif !important;
+    /* ============================================================
+     * Design system — Catppuccin Mocha tokens + semantic aliases.
+     * One palette, used everywhere.
+     * ============================================================ */
+    :root {
+      --ctp-rosewater:#f5e0dc; --ctp-flamingo:#f2cdcd; --ctp-pink:#f5c2e7;
+      --ctp-mauve:#cba6f7;    --ctp-red:#f38ba8;     --ctp-maroon:#eba0ac;
+      --ctp-peach:#fab387;    --ctp-yellow:#f9e2af;  --ctp-green:#a6e3a1;
+      --ctp-teal:#94e2d5;     --ctp-sky:#89dceb;     --ctp-sapphire:#74c7ec;
+      --ctp-blue:#89b4fa;     --ctp-lavender:#b4befe;
+      --ctp-text:#cdd6f4;     --ctp-subtext1:#bac2de;--ctp-subtext0:#a6adc8;
+      --ctp-overlay2:#9399b2; --ctp-overlay1:#7f849c;--ctp-overlay0:#6c7086;
+      --ctp-surface2:#585b70; --ctp-surface1:#45475a;--ctp-surface0:#313244;
+      --ctp-base:#1e1e2e;     --ctp-mantle:#181825;  --ctp-crust:#11111b;
+
+      --bg-app:       #1e1e2e;
+      --bg-elevated:  #181825;
+      --bg-surface:   #313244;
+      --bg-surface-2: #45475a;
+      --border:        rgba(186,194,222,0.08);
+      --border-strong:rgba(186,194,222,0.18);
+      --text:         #cdd6f4;
+      --text-muted:   #bac2de;
+      --text-dim:     #9399b2;
+      --text-faint:   #6c7086;
+      --accent:       #89b4fa;
+      --accent-soft:  rgba(137,180,250,0.14);
+      --accent-line:  rgba(137,180,250,0.35);
+      --accent-2:     #cba6f7;
+      --success:      #a6e3a1;
+      --warning:      #f9e2af;
+      --danger:       #f38ba8;
+      --info:         #89dceb;
+      --teal:         #94e2d5;
+
+      --r-sm: 6px; --r: 10px; --r-lg: 14px; --r-xl: 18px;
+      --sh-sm: 0 1px 2px rgba(0,0,0,0.20);
+      --sh:    0 6px 18px rgba(0,0,0,0.28);
+      --sh-lg: 0 22px 56px rgba(0,0,0,0.52);
     }
-    
-    /* Main Background custom subtle gradient */
+
+    /* ----------------------------------------------------------
+     * Global typography, motion, and streamlit chrome.
+     * ---------------------------------------------------------- */
+    html, body, [class*="css"], .stMarkdown, .stButton button, input, textarea {
+      font-family: 'Outfit','Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif !important;
+    }
+    html, body {
+      color: var(--text) !important;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    #MainMenu, [data-testid="stToolbar"], footer { visibility: hidden; height: 0; }
+    [data-testid="stDecoration"] { display: none; }
+    ::selection { background: var(--accent-soft); color: var(--text); }
+
+    /* ----------------------------------------------------------
+     * App background: solid base + a single soft accent glow.
+     * ---------------------------------------------------------- */
     .stApp {
-        background: linear-gradient(135deg, #0e1117 0%, #151922 100%) !important;
+      background:
+        radial-gradient(900px 600px at 100% -10%, rgba(137,180,250,0.06), transparent 60%),
+        var(--bg-app) !important;
     }
-    
-    /* Sleek Sidebar styling */
+
+    /* ----------------------------------------------------------
+     * Main column: center the chat column for readability.
+     * ---------------------------------------------------------- */
+    .block-container,
+    [data-testid="stMain"] > .block-container {
+      max-width: 880px;
+      padding-top: 1.6rem;
+      padding-bottom: 8rem;
+      padding-left: 1.6rem;
+      padding-right: 1.6rem;
+    }
+    @media (min-width: 1400px) {
+      .block-container { max-width: 940px; }
+    }
+
+    /* ----------------------------------------------------------
+     * Sidebar.
+     * ---------------------------------------------------------- */
     section[data-testid="stSidebar"] {
-        background-color: #0c0e14 !important;
-        border-right: 1px solid #1f2937 !important;
+      background: var(--bg-elevated) !important;
+      border-right: 1px solid var(--border) !important;
+      padding: 0.9rem 0.85rem 2rem 0.85rem;
     }
-    
-    /* Custom checklist items card styling */
+    section[data-testid="stSidebar"] > div { gap: 0; }
+    /* Section headers: tracked uppercase, muted. */
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] [data-testid="stHeader"] {
+      font-size: 0.7rem !important;
+      font-weight: 700 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.10em !important;
+      color: var(--text-dim) !important;
+      margin: 1.2rem 0 0.55rem 0 !important;
+      padding: 0 0 0.35rem 0 !important;
+      border-bottom: 1px solid var(--border) !important;
+      line-height: 1.2 !important;
+    }
+    section[data-testid="stSidebar"] > div > div:first-child h2,
+    section[data-testid="stSidebar"] > div > div:first-child [data-testid="stHeader"] {
+      margin-top: 0 !important;
+    }
+    section[data-testid="stSidebar"] hr {
+      margin: 0.9rem 0 !important;
+      border-color: var(--border) !important;
+    }
+    section[data-testid="stSidebar"] .stCaption,
+    section[data-testid="stSidebar"] small {
+      color: var(--text-faint) !important;
+    }
+    section[data-testid="stSidebar"] code {
+      background: var(--bg-surface) !important;
+      color: var(--accent) !important;
+      border-radius: var(--r-sm) !important;
+      padding: 0.05rem 0.35rem !important;
+      border: 1px solid var(--border) !important;
+    }
+    section[data-testid="stSidebar"] iframe {
+      border-radius: var(--r) !important;
+      border: 1px solid var(--border) !important;
+      background: var(--bg-elevated) !important;
+    }
+
+    /* ----------------------------------------------------------
+     * Top header (title + Console + menu).
+     * ---------------------------------------------------------- */
+    h1 {
+      font-weight: 700 !important;
+      letter-spacing: -0.012em !important;
+      font-size: 1.55rem !important;
+      line-height: 1.2 !important;
+      color: var(--text) !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    [data-testid="stMain"] > .block-container > div:first-child {
+      padding-bottom: 0.9rem !important;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.2rem !important;
+    }
+    /* Drop the old margin-top hacks on header buttons. */
+    .st-key-dev_console_toggle,
+    .st-key-dc_header_menu { margin-top: 0 !important; }
+    .st-key-dev_console_toggle button {
+      width: 100%;
+      background: var(--accent-soft) !important;
+      border: 1px solid var(--accent-line) !important;
+      color: var(--text) !important;
+      border-radius: var(--r) !important;
+      font-weight: 500 !important;
+      font-size: 0.82rem !important;
+      padding: 0.45rem 0.55rem !important;
+    }
+    .st-key-dev_console_toggle button:hover {
+      background: var(--accent-line) !important;
+      transform: translateY(-1px);
+    }
+    .st-key-dc_header_menu button {
+      width: 100%;
+      background: var(--bg-elevated) !important;
+      border: 1px solid var(--border) !important;
+      color: var(--text-muted) !important;
+      border-radius: var(--r) !important;
+      font-size: 0.95rem !important;
+      padding: 0.35rem 0.55rem !important;
+      line-height: 1 !important;
+    }
+    .st-key-dc_header_menu button:hover {
+      background: var(--bg-surface) !important;
+      color: var(--text) !important;
+      border-color: var(--border-strong) !important;
+    }
+
+    /* ----------------------------------------------------------
+     * Buttons (sidebar + body).
+     * ---------------------------------------------------------- */
+    .stButton > button,
+    [data-testid="baseButton"] {
+      background: var(--bg-elevated) !important;
+      color: var(--text) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: var(--r) !important;
+      font-weight: 500 !important;
+      transition: background .15s ease, border-color .15s ease, transform .12s ease;
+      box-shadow: none !important;
+    }
+    .stButton > button:hover,
+    [data-testid="baseButton"]:hover {
+      background: var(--bg-surface) !important;
+      border-color: var(--border-strong) !important;
+      transform: translateY(-1px);
+    }
+    .stButton > button:focus-visible {
+      outline: 2px solid var(--accent) !important;
+      outline-offset: 2px !important;
+    }
+    .stButton > button[kind="primary"],
+    [data-testid="baseButton"][kind="primary"] {
+      background: var(--accent-soft) !important;
+      border-color: var(--accent-line) !important;
+      color: var(--text) !important;
+    }
+    .stButton > button[kind="primary"]:hover,
+    [data-testid="baseButton"][kind="primary"]:hover {
+      background: var(--accent-line) !important;
+    }
+    .stDownloadButton > button {
+      width: 100%;
+    }
+
+    /* ----------------------------------------------------------
+     * Inputs: text_input / textarea / chat_input / selectbox / file_uploader.
+     * ---------------------------------------------------------- */
+    .stTextInput input,
+    .stTextArea textarea,
+    .stChatInput textarea,
+    [data-baseweb="input"] input,
+    [data-baseweb="textarea"] textarea {
+      background: var(--bg-elevated) !important;
+      color: var(--text) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: var(--r) !important;
+      caret-color: var(--accent) !important;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .stTextInput input:focus,
+    .stChatInput textarea:focus,
+    [data-baseweb="input"] input:focus,
+    [data-baseweb="textarea"] textarea:focus {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 3px var(--accent-soft) !important;
+      outline: none !important;
+    }
+    [data-baseweb="select"] > div {
+      background: var(--bg-elevated) !important;
+      border-color: var(--border) !important;
+      border-radius: var(--r) !important;
+      color: var(--text) !important;
+    }
+    [data-baseweb="select"] > div:hover {
+      border-color: var(--border-strong) !important;
+    }
+    [data-baseweb="select"] > div:focus,
+    [data-baseweb="select"] > div:focus-within {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 3px var(--accent-soft) !important;
+    }
+    /* File uploader */
+    [data-testid="stFileUploaderDropzone"] {
+      background: var(--bg-elevated) !important;
+      border: 1px dashed var(--border-strong) !important;
+      border-radius: var(--r) !important;
+    }
+    [data-testid="stFileUploaderDropzone"]:hover {
+      border-color: var(--accent) !important;
+    }
+    /* Popover menu container */
+    [data-testid="stPopover"] > div:first-child {
+      background: var(--bg-elevated) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: var(--r) !important;
+      color: var(--text) !important;
+    }
+    [data-testid="stPopoverContent"],
+    [data-baseweb="popover"] {
+      background: var(--bg-elevated) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: var(--r) !important;
+      color: var(--text) !important;
+      box-shadow: var(--sh) !important;
+    }
+
+    /* ----------------------------------------------------------
+     * Chat column: bubbles, anchored footer, comfortable rhythm.
+     * ---------------------------------------------------------- */
+    [data-testid="stChatMessage"] {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 0.85rem 1rem;
+      margin: 0.65rem 0;
+      box-shadow: var(--sh-sm);
+      transition: border-color .15s ease, background .15s ease;
+    }
+    [data-testid="stChatMessage"]:hover {
+      border-color: var(--border-strong);
+    }
+    [data-testid="stChatMessage"][data-testid="chat-message-user"],
+    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
+      background: linear-gradient(180deg, rgba(137,180,250,0.10), rgba(137,180,250,0.04));
+      border-color: var(--accent-line);
+      border-left: 3px solid var(--accent);
+    }
+    [data-testid="stChatMessage"] [data-testid="chatAvatar"] {
+      background: var(--bg-surface) !important;
+      border: 1px solid var(--border);
+    }
+    [data-testid="stChatMessage"] p { line-height: 1.6; }
+    [data-testid="stChatMessage"] p:first-child { margin-top: 0; }
+    [data-testid="stChatMessage"] p:last-child  { margin-bottom: 0; }
+    /* Chat input: anchored, glow on focus */
+    [data-testid="stChatInput"] {
+      background: transparent;
+      padding-bottom: 0.5rem;
+    }
+    [data-testid="stChatInput"] > div,
+    [data-testid="stChatInputTextArea"] {
+      background: var(--bg-elevated) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: var(--r-xl) !important;
+      box-shadow: var(--sh);
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    [data-testid="stChatInput"]:focus-within > div,
+    [data-testid="stChatInputTextArea"]:focus {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 4px var(--accent-soft), var(--sh) !important;
+    }
+
+    /* ----------------------------------------------------------
+     * Checklist cards (replaces the float-right banner grid).
+     * ---------------------------------------------------------- */
     .checklist-card {
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        padding: 14px;
-        margin-bottom: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s, border 0.2s, background 0.2s;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.7rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 0.7rem 0.8rem;
+      margin: 0 0 0.5rem 0;
+      transition: background .15s ease, border-color .15s ease, transform .12s ease;
     }
     .checklist-card:hover {
-        transform: translateY(-2px);
-        border-color: rgba(0, 123, 255, 0.4);
-        background: rgba(255, 255, 255, 0.04);
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
     }
-    
-    /* Checklist complete state badge */
-    .badge-complete {
-        background: linear-gradient(90deg, #10b981 0%, #059669 100%) !important;
-        color: white !important;
-        font-size: 0.75rem;
-        padding: 2px 8px;
-        border-radius: 20px;
-        font-weight: 600;
-        float: right;
+    .checklist-card.complete {
+      border-left: 3px solid var(--success);
     }
-    
-    /* Checklist missing state badge */
-    .badge-missing {
-        background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%) !important;
-        color: white !important;
-        font-size: 0.75rem;
-        padding: 2px 8px;
-        border-radius: 20px;
-        font-weight: 600;
-        float: right;
+    .checklist-card.missing {
+      border-left: 3px solid var(--warning);
     }
-    
-    /* Card headers */
-    .card-header {
-        font-weight: 600;
-        color: #f3f4f6;
-        margin-bottom: 4px;
-        font-size: 0.95rem;
+    .checklist-status {
+      flex: 0 0 auto;
+      width: 9px; height: 9px;
+      margin-top: 0.40rem;
+      border-radius: 50%;
     }
-    
-    /* Card values */
-    .card-value {
-        color: #9ca3af;
-        font-size: 0.85rem;
-        font-style: italic;
+    .checklist-card.complete .checklist-status {
+      background: var(--success);
+      box-shadow: 0 0 0 3px rgba(166,227,161,0.18);
+    }
+    .checklist-card.missing .checklist-status {
+      background: var(--warning);
+      box-shadow: 0 0 0 3px rgba(249,226,175,0.18);
+    }
+    .checklist-body { min-width: 0; flex: 1 1 auto; }
+    .checklist-header {
+      font-weight: 600;
+      color: var(--text);
+      font-size: 0.9rem;
+      line-height: 1.3;
+    }
+    .checklist-value {
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      margin-top: 0.15rem;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+    .checklist-card.missing .checklist-value {
+      color: var(--text-faint);
+      font-style: italic;
     }
 
-    /* ------------------------------------------------------------------ */
-    /* Developer Console — VS Code-style IDE inspector (modal overlay).    */
-    /* Scoped to the console modal container + header cluster; the chat    */
-    /* column and sidebar are untouched.                                   */
-    /* ------------------------------------------------------------------ */
+    /* ----------------------------------------------------------
+     * Code, dividers, success/warning, alerts.
+     * ---------------------------------------------------------- */
+    .stCode, code, [data-testid="stCode"] {
+      background: var(--bg-elevated) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: var(--r) !important;
+      color: var(--text) !important;
+    }
+    .stAlert {
+      border-radius: var(--r) !important;
+      border: 1px solid var(--border) !important;
+      background: var(--bg-elevated) !important;
+    }
+    hr { border-color: var(--border) !important; opacity: 1; }
+    .stSpinner > div { border-top-color: var(--accent) !important; }
+    .stMarkdown a { color: var(--accent) !important; text-decoration: none; border-bottom: 1px dashed var(--accent-line); }
+    .stMarkdown a:hover { color: var(--text) !important; border-bottom-color: var(--accent); }
+
+    /* ----------------------------------------------------------
+     * Scrollbar.
+     * ---------------------------------------------------------- */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: var(--bg-surface-2);
+      border-radius: 10px;
+      border: 2px solid var(--bg-app);
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+
+    /* ===========================================================
+     * Developer Console — VS Code-style IDE inspector (modal).
+     * Preserved layout from the original feature; only the accent
+     * palette is harmonized with the design system.
+     * =========================================================== */
     @keyframes dc-pop-in {
-        from { transform: scale(0.98) translateY(8px); opacity: 0; }
+      from { transform: scale(0.98) translateY(8px); opacity: 0; }
         to   { transform: scale(1) translateY(0); opacity: 1; }
     }
-
-    /* Backdrop: full-viewport dim behind the modal. Clicking it closes. */
     .dc-modal-backdrop {
-        position: fixed;
-        inset: 0;
-        z-index: 999;
-        background: rgba(2, 6, 12, 0.62);
-        backdrop-filter: blur(3px);
+      position: fixed; inset: 0; z-index: 999;
+      background: rgba(17,17,27,0.62);
+      backdrop-filter: blur(3px);
     }
-
-    /* The modal frame: large, centered, dark, rounded, soft shadow. */
     .st-key-dc_modal {
-        position: fixed;
-        top: 7.5vh;
-        left: 10vw;
-        width: 80vw;
-        height: 85vh;
-        z-index: 1000;
-        background: #0d131b;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 14px;
-        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.65);
-        animation: dc-pop-in 0.16s ease-out;
-        overflow: hidden;
-        padding: 0.6rem 0.8rem 0.7rem 0.8rem;
+      position: fixed; top: 7.5vh; left: 10vw;
+      width: 80vw; height: 85vh; z-index: 1000;
+      background: #1e1e2e;
+      border: 1px solid var(--border-strong);
+      border-radius: 14px;
+      box-shadow: var(--sh-lg);
+      animation: dc-pop-in .16s ease-out;
+      overflow: hidden;
+      padding: 0.6rem 0.8rem 0.7rem 0.8rem;
     }
-
-    /* Modal header: title + close, then turn/search/view. */
     .st-key-dc_modal .dc-header {
-        font-size: 0.95rem;
-        font-weight: 700;
-        color: #f1f5f9;
-        letter-spacing: 0.02em;
-        display: flex;
-        align-items: baseline;
-        gap: 0.6rem;
-        padding: 0.1rem 0 0.35rem 0;
-        border-bottom: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.95rem; font-weight: 700;
+      color: var(--text); letter-spacing: 0.02em;
+      display: flex; align-items: baseline; gap: 0.6rem;
+      padding: 0.1rem 0 0.35rem 0;
+      border-bottom: 1px solid var(--border);
     }
     .st-key-dc_modal .dc-legend {
-        font-size: 0.62rem;
-        font-weight: 500;
-        color: #64748b;
-        letter-spacing: 0.04em;
+      font-size: 0.62rem; font-weight: 500;
+      color: var(--text-faint); letter-spacing: 0.04em;
     }
     .st-key-dc_modal_close button {
-        font-size: 0.8rem;
-        padding: 0.2rem 0.55rem;
-        border-radius: 6px;
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.1);
-        color: #cbd5e1;
+      font-size: 0.8rem; padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-strong);
+      color: var(--text-muted);
     }
     .st-key-dc_modal_close button:hover {
-        background: rgba(239,68,68,0.2);
-        border-color: rgba(239,68,68,0.5);
-        color: #fca5a5;
+      background: rgba(243,139,168,0.2);
+      border-color: rgba(243,139,168,0.5);
+      color: #eba0ac;
     }
-
-    /* Turn selector + search row. */
     .st-key-dc_ide_turn { margin: 0.4rem 0 0.25rem 0; }
-    .st-key-dc_ide_turn [data-baseweb="select"] > div { border-color: rgba(255,255,255,0.12); }
+    .st-key-dc_ide_turn [data-baseweb="select"] > div { border-color: var(--border-strong); }
     .st-key-dc_ide_search { margin: 0.15rem 0 0.25rem 0; }
     .st-key-dc_ide_search input {
-        font-size: 0.78rem;
-        border-radius: 6px;
-        border-color: rgba(255,255,255,0.12);
+      font-size: 0.78rem; border-radius: 6px; border-color: var(--border-strong);
     }
-
-    /* Diagnostics / Timeline segmented toggle. */
     .st-key-dc_ide_view { margin: 0.1rem 0 0.4rem 0; }
     .st-key-dc_ide_view > div { display: flex; }
     .st-key-dc_ide_view label {
-        font-size: 0.74rem;
-        padding: 0.16rem 0.8rem;
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 6px;
-        margin-right: 0.25rem;
-        background: rgba(255,255,255,0.02);
-        white-space: nowrap;
+      font-size: 0.74rem; padding: 0.16rem 0.8rem;
+      border: 1px solid var(--border-strong); border-radius: 6px;
+      margin-right: 0.25rem; background: rgba(255,255,255,0.02); white-space: nowrap;
     }
     .st-key-dc_ide_view label:has(input:checked) {
-        background: rgba(14,165,233,0.18);
-        border-color: rgba(14,165,233,0.55);
-        color: #ffffff;
+      background: rgba(137,180,250,0.18);
+      border-color: rgba(137,180,250,0.55);
+      color: #ffffff;
     }
-
-    /* Navigation tree: category labels + one file-row per section. */
-    .dc-nav-empty {
-        font-size: 0.72rem;
-        color: #64748b;
-        padding: 0.4rem 0.25rem;
-        font-style: italic;
-    }
-
-    /* Friendly empty state shown when the conversation has no diagnostic
-       turns. Rendered as the BODY only — the header (incl. close) stays up. */
+    .dc-nav-empty { font-size: 0.72rem; color: var(--text-faint); padding: 0.4rem 0.25rem; font-style: italic; }
     .dc-empty {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 0.35rem;
-        min-height: calc(85vh - 12rem);
-        text-align: center;
-        padding: 2rem 1rem;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 0.35rem; min-height: calc(85vh - 12rem); text-align: center; padding: 2rem 1rem;
     }
-    .dc-empty-icon {
-        font-size: 2.4rem;
-        opacity: 0.55;
-    }
-    .dc-empty-title {
-        font-size: 1.02rem;
-        font-weight: 700;
-        color: #e2e8f0;
-    }
-    .dc-empty-sub {
-        font-size: 0.82rem;
-        color: #64748b;
-        max-width: 34rem;
-        line-height: 1.5;
-    }
+    .dc-empty-icon { font-size: 2.4rem; opacity: 0.55; }
+    .dc-empty-title { font-size: 1.02rem; font-weight: 700; color: #e2e8f0; }
+    .dc-empty-sub { font-size: 0.82rem; color: var(--text-faint); max-width: 34rem; line-height: 1.5; }
     .dc-nav-row {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        width: 100%;
-        text-align: left;
-        background: transparent;
-        border: none;
-        border-left: 2px solid transparent;
-        border-radius: 4px;
-        padding: 0.22rem 0.3rem;
-        margin: 1px 0;
-        cursor: pointer;
-        font-family: inherit;
-        color: #cbd5e1;
+      display: flex; align-items: center; gap: 0.4rem; width: 100%;
+      text-align: left; background: transparent; border: none;
+      border-left: 2px solid transparent; border-radius: 4px;
+      padding: 0.22rem 0.3rem; margin: 1px 0;
+      cursor: pointer; font-family: inherit; color: var(--text-muted);
     }
     .dc-nav-row:hover { background: rgba(255,255,255,0.05); }
     .dc-nav-row.active {
-        background: rgba(14,165,233,0.12);
-        border-left-color: #38bdf8;
-        color: #f1f5f9;
+      background: rgba(137,180,250,0.12);
+      border-left-color: var(--accent);
+      color: var(--text);
     }
     .dc-nav-icon { font-size: 0.8rem; width: 1rem; text-align: center; flex: 0 0 auto; }
     .dc-nav-body { min-width: 0; flex: 1 1 auto; }
     .dc-nav-name {
-        font-size: 0.76rem;
-        font-weight: 600;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+      font-size: 0.76rem; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .dc-nav-sub {
-        font-size: 0.64rem;
-        color: #64748b;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+    .dc-nav-sub { font-size: 0.64rem; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .dc-nav-reason {
-        flex: 0 0 auto;
-        font-size: 0.6rem;
-        color: #94a3b8;
-        max-width: 9rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+      flex: 0 0 auto; font-size: 0.6rem; color: var(--text-dim);
+      max-width: 9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-
-    /* Explorer: VS Code-style sidebar — a folder-row per turn (one open at a
-       time) with flat per-section rows underneath. Independent scroll. */
     .dc-exp-row {
-        display: flex;
-        align-items: center;
-        gap: 0.35rem;
-        width: 100%;
-        text-align: left;
-        background: transparent;
-        border: none;
-        border-left: 2px solid transparent;
-        border-radius: 4px;
-        padding: 0.24rem 0.3rem;
-        margin: 2px 0 1px 0;
-        cursor: pointer;
-        font-family: inherit;
-        color: #e2e8f0;
+      display: flex; align-items: center; gap: 0.35rem; width: 100%;
+      text-align: left; background: transparent; border: none;
+      border-left: 2px solid transparent; border-radius: 4px;
+      padding: 0.24rem 0.3rem; margin: 2px 0 1px 0;
+      cursor: pointer; font-family: inherit; color: var(--text);
     }
     .dc-exp-row:hover { background: rgba(255,255,255,0.06); }
     .dc-exp-row.active {
-        background: rgba(14,165,233,0.10);
-        border-left-color: #38bdf8;
-        color: #f1f5f9;
+      background: rgba(137,180,250,0.10);
+      border-left-color: var(--accent);
+      color: var(--text);
     }
-    .dc-exp-chev {
-        flex: 0 0 auto;
-        width: 0.7rem;
-        text-align: center;
-        font-size: 0.6rem;
-        color: #7dd3fc;
-    }
+    .dc-exp-chev { flex: 0 0 auto; width: 0.7rem; text-align: center; font-size: 0.6rem; color: var(--accent-2); }
     .dc-exp-icon { flex: 0 0 auto; width: 1rem; text-align: center; font-size: 0.8rem; }
     .dc-exp-body { min-width: 0; flex: 1 1 auto; }
     .dc-exp-label {
-        display: block;
-        font-size: 0.78rem;
-        font-weight: 700;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+      display: block; font-size: 0.78rem; font-weight: 700;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .dc-exp-sub {
-        display: block;
-        font-size: 0.63rem;
-        color: #64748b;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+      display: block; font-size: 0.63rem; color: var(--text-faint);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    /* Section rows are indented under their turn folder. */
     .dc-nav-row.dc-exp-child { padding-left: 1.15rem; }
     .dc-tree-item { outline: none; }
-
-    /* The Explorer sidebar scrolls independently of the content pane. */
     .st-key-dc_ide_nav { max-height: calc(85vh - 11rem); overflow-y: auto; }
-
-    /* Real Streamlit buttons behind the nav rows stay hidden. */
     [class*="st-key-dc_navbtn_"] { display: none; }
     [class*="st-key-dc_turnbtn_"] { display: none; }
-
-    /* Right pane: single selected section, editor-style. */
     .st-key-dc_ide_pane {
-        height: 100%;
-        overflow: hidden;
-        padding: 0 0 0 0.75rem;
-        border-left: 1px solid rgba(255,255,255,0.08);
+      height: 100%; overflow: hidden;
+      padding: 0 0 0 0.75rem;
+      border-left: 1px solid var(--border);
     }
     .dc-ide-tab {
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        font-size: 0.74rem;
-        font-weight: 700;
-        color: #e2e8f0;
-        padding: 0.35rem 0.5rem;
-        margin-bottom: 0.4rem;
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.07);
-        border-radius: 6px 6px 0 0;
-        border-bottom: 2px solid #38bdf8;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+      display: flex; align-items: center; gap: 0.4rem;
+      font-size: 0.74rem; font-weight: 700; color: var(--text);
+      padding: 0.35rem 0.5rem; margin-bottom: 0.4rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 6px 6px 0 0; border-bottom: 2px solid var(--accent);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .dc-ide-tab-status { margin-left: auto; font-size: 0.7rem; }
     .dc-ide-pane-scroll {
-        max-height: calc(85vh - 11rem);
-        overflow: auto;
-        padding-right: 0.3rem;
+      max-height: calc(85vh - 11rem); overflow: auto; padding-right: 0.3rem;
     }
     .dc-ide-body {
-        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-        font-size: 0.74rem;
-        line-height: 1.5;
-        color: #cbd5e1;
-        white-space: pre-wrap;
-        word-break: break-word;
-        background: rgba(255,255,255,0.015);
-        border: 1px solid rgba(255,255,255,0.05);
-        border-radius: 6px;
-        padding: 0.45rem 0.5rem;
-        margin: 0.2rem 0;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 0.74rem; line-height: 1.5; color: var(--text-muted);
+      white-space: pre-wrap; word-break: break-word;
+      background: rgba(255,255,255,0.015);
+      border: 1px solid var(--border);
+      border-radius: 6px; padding: 0.45rem 0.5rem; margin: 0.2rem 0;
     }
-
-    /* Prompt Viewer: full-file editor with line-number gutter + toolbar. */
-    .dc-prompt-viewer,
-    .dc-prompt-editor {
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 6px;
-        background: rgba(255,255,255,0.015);
-        margin: 0.2rem 0;
-        overflow: hidden;
+    .dc-prompt-viewer, .dc-prompt-editor {
+      border: 1px solid var(--border-strong); border-radius: 6px;
+      background: rgba(255,255,255,0.015); margin: 0.2rem 0; overflow: hidden;
     }
     .dc-pv-toolbar {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        padding: 0.3rem 0.5rem;
-        background: rgba(255,255,255,0.03);
-        border-bottom: 1px solid rgba(255,255,255,0.07);
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.3rem 0.5rem;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
     }
-    .dc-pv-title,
-    .dc-pv-tab {
-        font-size: 0.66rem;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: #7dd3fc;
+    .dc-pv-title, .dc-pv-tab {
+      font-size: 0.66rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--accent-2);
     }
     .dc-pv-stats {
-        flex: 1 1 auto;
-        font-size: 0.62rem;
-        color: #64748b;
-        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+      flex: 1 1 auto; font-size: 0.62rem; color: var(--text-faint);
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .dc-pv-copy {
-        font-size: 0.66rem;
-        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-        color: #cbd5e1;
-        background: rgba(59,130,246,0.14);
-        border: 1px solid rgba(59,130,246,0.4);
-        border-radius: 4px;
-        padding: 0.12rem 0.5rem;
-        cursor: pointer;
-        white-space: nowrap;
+      font-size: 0.66rem; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      color: var(--text-muted); background: rgba(137,180,250,0.14);
+      border: 1px solid rgba(137,180,250,0.4); border-radius: 4px;
+      padding: 0.12rem 0.5rem; cursor: pointer; white-space: nowrap;
     }
-    .dc-pv-copy:hover { background: rgba(59,130,246,0.28); }
+    .dc-pv-copy:hover { background: rgba(137,180,250,0.28); }
     .dc-pv-body {
-        display: grid;
-        grid-template-columns: max-content auto;
-        width: max-content;
-        min-width: 100%;
-        max-height: calc(85vh - 13.5rem);
-        overflow: auto;
+      display: grid; grid-template-columns: max-content auto;
+      width: max-content; min-width: 100%;
+      max-height: calc(85vh - 13.5rem); overflow: auto;
     }
     .dc-pv-gutter {
-        position: sticky;
-        left: 0;
-        z-index: 1;
-        background: rgba(15, 20, 30, 0.98);
-        border-right: 1px solid rgba(255,255,255,0.06);
-        text-align: right;
-        user-select: none;
+      position: sticky; left: 0; z-index: 1;
+      background: rgba(15,20,30,0.98);
+      border-right: 1px solid var(--border);
+      text-align: right; user-select: none;
     }
     .dc-pv-gutter pre {
-        margin: 0;
-        padding: 0.4rem 0.5rem 0.4rem 0;
-        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-        font-size: 0.72rem;
-        line-height: 1.5;
-        color: #475569;
-        background: transparent;
+      margin: 0; padding: 0.4rem 0.5rem 0.4rem 0;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 0.72rem; line-height: 1.5; color: #475569; background: transparent;
     }
     .dc-pv-code {
-        margin: 0;
-        padding: 0.4rem 0.5rem;
-        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-        font-size: 0.72rem;
-        line-height: 1.5;
-        color: #cbd5e1;
-        white-space: pre;
-        overflow: visible;
-        background: transparent;
+      margin: 0; padding: 0.4rem 0.5rem;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 0.72rem; line-height: 1.5; color: var(--text-muted);
+      white-space: pre; overflow: visible; background: transparent;
     }
     .dc-pv-code .pc-h { display: block; color: #93c5fd; font-weight: 700; }
     .dc-pv-code .pc-hline { display: block; color: #334155; font-weight: 700; }
@@ -1113,138 +1288,70 @@ st.markdown("""
     .dc-pv-code .pc-tokline { color: #fde68a; }
     .dc-pv-code .pc-tok { color: #fbbf24; font-weight: 700; }
     .dc-pv-code .pc-list .pc-tok { color: #fbbf24; }
-
-    /* Search hits: highlighted section body while a query is active. */
     .dc-highlight {
-        white-space: pre-wrap;
-        word-break: break-word;
-        font-size: 0.74rem;
-        line-height: 1.5;
-        color: #cbd5e1;
-        background: rgba(255,255,255,0.02);
-        border: 1px solid rgba(255,255,255,0.05);
-        border-radius: 4px;
-        padding: 0.45rem 0.5rem;
-        margin: 0.2rem 0;
+      white-space: pre-wrap; word-break: break-word;
+      font-size: 0.74rem; line-height: 1.5; color: var(--text-muted);
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 4px; padding: 0.45rem 0.5rem; margin: 0.2rem 0;
     }
     mark.dc-search-hit {
-        background: rgba(245, 158, 11, 0.25);
-        color: #fbbf24;
-        border-radius: 2px;
-        padding: 0 1px;
+      background: rgba(249,226,175,0.25); color: var(--warning);
+      border-radius: 2px; padding: 0 1px;
     }
     .dc-search-caption {
-        font-size: 0.64rem;
-        color: #64748b;
-        padding: 0.15rem 0.25rem;
+      font-size: 0.64rem; color: var(--text-faint); padding: 0.15rem 0.25rem;
     }
-
-    /* Pipeline Timeline: horizontal IDE-style node flow. */
     .dc-tl-flow {
-        display: flex;
-        flex-wrap: nowrap;
-        gap: 0.4rem;
-        overflow-x: auto;
-        overflow-y: hidden;
-        padding: 0.3rem 0.1rem 0.6rem 0.1rem;
+      display: flex; flex-wrap: nowrap; gap: 0.4rem;
+      overflow-x: auto; overflow-y: hidden; padding: 0.3rem 0.1rem 0.6rem 0.1rem;
     }
     .dc-tl-card {
-        flex: 0 0 230px;
-        min-width: 230px;
-        max-width: 260px;
-        background: rgba(255,255,255,0.02);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-top: 3px solid #64748b;
-        border-radius: 8px;
-        padding: 0.45rem 0.6rem;
+      flex: 0 0 230px; min-width: 230px; max-width: 260px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border-strong); border-top: 3px solid var(--text-faint);
+      border-radius: 8px; padding: 0.45rem 0.6rem;
     }
-    .dc-tl-card.healthy { border-top-color: #22c55e; }
-    .dc-tl-card.warning { border-top-color: #eab308; }
-    .dc-tl-card.problem { border-top-color: #ef4444; }
-    .dc-tl-arrow {
-        flex: 0 0 auto;
-        align-self: center;
-        color: #475569;
-        font-size: 1rem;
-    }
+    .dc-tl-card.healthy { border-top-color: var(--success); }
+    .dc-tl-card.warning { border-top-color: var(--warning); }
+    .dc-tl-card.problem { border-top-color: var(--danger); }
+    .dc-tl-arrow { flex: 0 0 auto; align-self: center; color: var(--text-faint); font-size: 1rem; }
     .dc-tl-head { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
     .dc-tl-icon { font-size: 0.95rem; line-height: 1; }
-    .dc-tl-name { font-weight: 600; color: #f3f4f6; font-size: 0.82rem; }
-    .dc-tl-ms { color: #94a3b8; font-size: 0.7rem; margin-left: auto; font-variant-numeric: tabular-nums; }
+    .dc-tl-name { font-weight: 600; color: var(--text); font-size: 0.82rem; }
+    .dc-tl-ms { color: var(--text-dim); font-size: 0.7rem; margin-left: auto; font-variant-numeric: tabular-nums; }
     .dc-tl-flag { font-size: 0.8rem; }
-    .dc-tl-reason { color: #facc15; font-size: 0.7rem; margin-top: 0.2rem; }
+    .dc-tl-reason { color: var(--warning); font-size: 0.7rem; margin-top: 0.2rem; }
     .dc-tl-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem; }
     .dc-tl-chip {
-        font-size: 0.64rem;
-        color: #cbd5e1;
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 4px;
-        padding: 0.04rem 0.3rem;
+      font-size: 0.64rem; color: var(--text-muted);
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border-strong); border-radius: 4px; padding: 0.04rem 0.3rem;
     }
-    .dc-tl-chip b { color: #e2e8f0; font-weight: 600; }
+    .dc-tl-chip b { color: var(--text); font-weight: 600; }
     .dc-tl-detail { margin-top: 0.35rem; }
     .dc-tl-detail summary {
-        cursor: pointer;
-        font-size: 0.68rem;
-        color: #38bdf8;
-        user-select: none;
+      cursor: pointer; font-size: 0.68rem;
+      color: var(--accent); user-select: none;
     }
-    .dc-tl-detail summary:hover { color: #7dd3fc; }
+    .dc-tl-detail summary:hover { color: var(--text); }
     .dc-tl-pre {
-        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
-        font-size: 0.66rem;
-        line-height: 1.4;
-        white-space: pre-wrap;
-        word-break: break-word;
-        background: rgba(0,0,0,0.35);
-        border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 6px;
-        padding: 0.35rem;
-        margin: 0.35rem 0 0 0;
-        max-height: 180px;
-        overflow-y: auto;
-        color: #cbd5e1;
-    }
-
-    /* Header cluster: Console toggle + ⋮ menu, right-aligned with title. */
-    .st-key-dev_console_toggle { margin-top: 1.35rem; }
-    .st-key-dev_console_toggle button {
-        font-size: 0.75rem;
-        padding: 0.4rem 0.55rem;
-        border-radius: 6px;
-        white-space: nowrap;
-        font-weight: 600;
-    }
-    .st-key-dc_header_menu { margin-top: 1.35rem; }
-    .st-key-dc_header_menu button {
-        font-size: 1rem;
-        color: #cbd5e1;
-        border: 1px solid rgba(255,255,255,0.1);
-        background: rgba(255,255,255,0.03);
-        border-radius: 6px;
-        padding: 0.4rem 0.5rem;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+      font-size: 0.66rem; line-height: 1.4; white-space: pre-wrap;
+      word-break: break-word; background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 0.35rem; margin: 0.35rem 0 0 0;
+      max-height: 180px; overflow-y: auto; color: var(--text-muted);
     }
     .dc-menu-title {
-        font-size: 0.66rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: #64748b;
-        margin-bottom: 0.25rem;
+      font-size: 0.66rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--text-faint); margin-bottom: 0.25rem;
     }
-
-    /* Responsive: keep the modal slightly larger on narrow windows but ALWAYS
-       leave visible margins — it must never occupy the whole browser window. */
     @media (max-width: 1199px) {
-        .st-key-dc_modal {
-            top: 4vh;
-            left: 4vw;
-            width: 92vw;
-            height: 92vh;
-        }
-        /* Keep the Explorer on narrow windows — it IS the turn selector. */
-        .st-key-dc_ide_pane { border-left: none; padding-left: 0; }
+      .st-key-dc_modal {
+        top: 4vh; left: 4vw; width: 92vw; height: 92vh;
+      }
+      .st-key-dc_ide_pane { border-left: none; padding-left: 0; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -1549,21 +1656,31 @@ def render_mermaid(code):
             {code}
         </pre>
     </div>
+    <script src="http://127.0.0.1:8000/static/mermaid.min.js"></script>
     <script type="module">
-        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-        mermaid.initialize({{ 
-            startOnLoad: true, 
-            theme: 'base',
-            themeVariables: {{
-                'primaryColor': '#007bff',
-                'edgeColor': '#555555'
-            }},
-            securityLevel: 'loose'
-        }});
-        // Force a re-render in case startOnLoad misses the dynamic content
-        setTimeout(() => {{
-            mermaid.contentLoaded();
-        }}, 500);
+        let m = window.mermaid;
+        if (!m) {{
+            try {{
+                const mod = await import('https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs');
+                m = mod.default;
+            }} catch(e) {{
+                console.error("Mermaid load failed:", e);
+            }}
+        }}
+        if (m) {{
+            m.initialize({{ 
+                startOnLoad: true, 
+                theme: 'base',
+                themeVariables: {{
+                    'primaryColor': '#007bff',
+                    'edgeColor': '#555555'
+                }},
+                securityLevel: 'loose'
+            }});
+            setTimeout(() => {{
+                m.contentLoaded();
+            }}, 300);
+        }}
     </script>
     """
     # Dynamic height based on lines of code (rough estimate)
@@ -1572,12 +1689,78 @@ def render_mermaid(code):
     st.components.v1.html(html_code, height=calc_height, scrolling=True)
 
 def format_prd():
-    doc = f"# Product Requirements Document (PRD)\n"
-    doc += f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"
-    doc += f"## Project Log\n"
+    project_name = st.session_state.get("project_name", "MyProject")
+    phase = st.session_state.get("dt_phase", "Empathize")
+    doc = f"# Product Requirements Document (PRD): {project_name}\n\n"
+    doc += f"**Phase:** {phase}  \n"
+    doc += f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M')}  \n"
+    doc += f"**Tool:** ThinkingPods Offline AI Design Thinking Assistant\n\n"
+    doc += "---\n\n"
+
+    # Fetch structured state from backend
+    checklist = {}
+    known_facts = []
+    assumptions = []
+    open_questions = []
+    try:
+        res = requests.post(f"{BACKEND_URL}/session/status", json={
+            "username": "User",
+            "project_name": project_name
+        }, timeout=3)
+        if res.status_code == 200:
+            data = res.json()
+            checklist = data.get("checklist", {})
+            known_facts = data.get("known_facts", [])
+            assumptions = data.get("assumptions", [])
+            open_questions = data.get("open_questions", [])
+    except Exception as e:
+        doc += f"> *Note: Structured state fetch degraded ({e})*\n\n"
+
+    # Executive Summary
+    doc += "## 1. Executive Summary\n"
+    doc += (
+        f"This document defines the user discovery, problem formulation, and foundational requirements "
+        f"for **{project_name}** gathered during the Design Thinking Empathize phase.\n\n"
+    )
+
+    # Core Discoveries Table / Sections
+    doc += "## 2. Foundational Discoveries\n\n"
+    def _val(key, default="*Not yet specified*"):
+        item = checklist.get(key, {})
+        v = item.get("value")
+        return v if (item.get("complete") and v) else default
+
+    doc += f"### 2.1 Target Audience (Personas)\n{_val('target_audience')}\n\n"
+    doc += f"### 2.2 Core Problem Statement\n{_val('pain_point')}\n\n"
+    doc += f"### 2.3 User Motivation & Underlying Driver\n{_val('motivation')}\n\n"
+    doc += f"### 2.4 Current Workarounds & Existing Tools\n{_val('existing_solution')}\n\n"
+    doc += f"### 2.5 Cadence & Urgency (Frequency)\n{_val('frequency')}\n\n"
+    doc += f"### 2.6 Real-World Observations & Evidence\n{_val('evidence')}\n\n"
+
+    if known_facts:
+        doc += "## 3. Verified Project Insights\n"
+        for fact in known_facts:
+            doc += f"- {fact}\n"
+        doc += "\n"
+
+    if assumptions:
+        doc += "## 4. Key Assumptions to Validate\n"
+        for asm in assumptions:
+            doc += f"- [ ] {asm}\n"
+        doc += "\n"
+
+    if open_questions:
+        doc += "## 5. Open Design Questions\n"
+        for q in open_questions:
+            doc += f"- ❓ {q}\n"
+        doc += "\n"
+
+    # Full Transcript
+    doc += "## 6. Complete Interview & Mentoring Transcript\n\n"
     for m in st.session_state.messages:
-        role = "Consultant" if m["role"] == "assistant" else "User"
+        role = "🤖 Coach" if m["role"] == "assistant" else "👤 User"
         doc += f"**{role}:** {m['content']}\n\n"
+
     return doc
 
 # --- UI Layout ---
@@ -1707,6 +1890,7 @@ with st.sidebar:
             })
             if status_res.status_code == 200:
                 status_data = status_res.json()
+                st.session_state.latest_checklist = status_data.get("checklist", {})
                 
                 # Render Checklist Cards
                 checklist = status_data.get("checklist", {})
@@ -1716,17 +1900,19 @@ with st.sidebar:
                     val = item["value"]
                     
                     if complete:
-                        badge = '<span class="badge-complete">✓ Complete</span>'
-                        val_html = f'<div class="card-value">{val}</div>'
+                        state_cls = "complete"
+                        val_display = val
                     else:
-                        badge = '<span class="badge-missing">✗ Missing</span>'
-                        val_html = '<div class="card-value" style="color: #6b7280; font-style: normal;">Not gathered yet</div>'
-                        
+                        state_cls = "missing"
+                        val_display = "Not gathered yet"
+                    
                     st.markdown(f"""
-                    <div class="checklist-card">
-                        {badge}
-                        <div class="card-header">{desc}</div>
-                        {val_html}
+                    <div class="checklist-card {state_cls}">
+                        <div class="checklist-status"></div>
+                        <div class="checklist-body">
+                            <div class="checklist-header">{desc}</div>
+                            <div class="checklist-value">{val_display}</div>
+                        </div>
                     </div>
                     """, unsafe_allow_html=True)
                 
@@ -1883,6 +2069,74 @@ with st.sidebar:
 chat_col = st.container()
 
 with chat_col:
+    # Live Top Progress Bar & PRD Action (active during chat)
+    if st.session_state.messages:
+        chk = st.session_state.get("latest_checklist", {})
+        if chk:
+            completed_count = sum(1 for item in chk.values() if item.get("complete"))
+            total_count = max(len(chk), 6)
+            pct = min(1.0, completed_count / total_count)
+
+            prog_col, prd_col = st.columns([0.76, 0.24], vertical_alignment="center")
+            with prog_col:
+                st.progress(pct, text=f"🎯 **Empathize Phase:** {completed_count}/{total_count} Discoveries Completed ({int(pct*100)}%)")
+            with prd_col:
+                if st.button("📄 Preview PRD", key="top_preview_prd", use_container_width=True):
+                    st.session_state.prd_content = format_prd()
+                    st.rerun()
+
+            if completed_count >= total_count:
+                st.success("🎉 **Empathize Phase Complete!** All foundational insights discovered. Click **Preview PRD** to inspect your requirements.")
+
+    # Live In-App PRD Previewer Modal/Expander
+    if st.session_state.get("prd_content"):
+        with st.expander("📄 **Product Requirements Document (PRD) — Live Preview**", expanded=True):
+            st.markdown(st.session_state.prd_content)
+            dl_c1, dl_c2 = st.columns([0.75, 0.25])
+            with dl_c1:
+                st.download_button(
+                    label="⬇️ Download PRD (.md)",
+                    data=st.session_state.prd_content,
+                    file_name=f"{st.session_state.get('project_name', 'MyProject')}_PRD.md",
+                    mime="text/markdown",
+                    key="inline_prd_dl",
+                    use_container_width=True,
+                )
+            with dl_c2:
+                if st.button("✕ Close Preview", key="close_inline_prd", use_container_width=True):
+                    st.session_state.prd_content = None
+                    st.rerun()
+        st.divider()
+
+    # Display Welcome Screen with Quick-Start Scenario Cards if no messages yet
+    if not st.session_state.messages:
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.8)); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 22px; margin-bottom: 20px;">
+            <h2 style="margin-top:0; font-size: 1.4rem; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                💡 Welcome to ThinkingPods
+            </h2>
+            <p style="color: #94a3b8; font-size: 0.95rem; margin-bottom: 8px;">
+                Your local, privacy-first AI Design Thinking mentor. Start by choosing a problem scenario below, or type your own project idea:
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        sc1, sc2 = st.columns(2)
+        with sc1:
+            if st.button("👵 **Elderly Medication**\n\n*Help seniors remember prescriptions on time*", use_container_width=True, key="starter_elderly"):
+                st.session_state.starter_input = "I want to help elderly people take medications on time"
+                st.rerun()
+            if st.button("🥦 **Grocery Waste**\n\n*Help families avoid wasting fresh food every week*", use_container_width=True, key="starter_grocery"):
+                st.session_state.starter_input = "I want to help busy families reduce grocery waste"
+                st.rerun()
+        with sc2:
+            if st.button("🎓 **Student Deadlines**\n\n*Help college students track assignment deadlines*", use_container_width=True, key="starter_students"):
+                st.session_state.starter_input = "I want to help college students track assignment deadlines"
+                st.rerun()
+            if st.button("💼 **Freelance Invoices**\n\n*Help freelancers get paid without awkward follow-ups*", use_container_width=True, key="starter_freelance"):
+                st.session_state.starter_input = "I want to help freelancers get invoices paid on time"
+                st.rerun()
+
     # Display Chat History
     for idx, message in enumerate(st.session_state.messages):
         with st.chat_message(message["role"]):
@@ -1955,6 +2209,8 @@ if audio_bytes and audio_bytes != st.session_state.get("last_audio_bytes"):
             st.warning("I couldn't quite hear that. Could you try again? 🎤")
 
 user_input = st.chat_input("Type your reply here...")
+if not user_input and st.session_state.get("starter_input"):
+    user_input = st.session_state.pop("starter_input")
 
 # --- Process Input ---
 if user_input:
@@ -1965,7 +2221,11 @@ if user_input:
     with st.chat_message("assistant"):
         with st.spinner("🧠 Thinking..."):
             ai_reply, audio_reply, _timing, _diag = call_backend_text(user_input, st.session_state.get("dt_phase", "Discovery"), doc_ctx=doc_context)
-            st.markdown(ai_reply)
+            def _stream_reply():
+                for word in ai_reply.split(" "):
+                    yield word + " "
+                    time.sleep(0.01)
+            st.write_stream(_stream_reply)
             audio_b64 = base64.b64encode(audio_reply).decode('utf-8') if audio_reply else None
             st.session_state.messages.append({
                 "role": "assistant",

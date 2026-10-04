@@ -18,7 +18,8 @@ sessions/
 
 # Local settings
 .env
-.claude/
 server_pid.txt
 svr_pid.txt
 cloudflared.exe
+.playwright-mcp/
+.streamlit/

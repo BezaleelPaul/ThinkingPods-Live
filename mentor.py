@@ -8,12 +8,26 @@ LLM responsibilities: natural language, tone, empathy, conversation.
 """
 
 import copy
+import os
 import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
-from timing import TurnProfiler, TurnTiming, summarize_extraction_timing, timed_ollama_chat
-from memory_extractor import LIST_FIELDS, MemoryExtractor, MessageType, ProjectState, REQUIRED_FIELDS, StateField, resolve_extractor_model
+from timing import (
+    TurnProfiler,
+    TurnTiming,
+    summarize_extraction_timing,
+    timed_ollama_chat,
+)
+from memory_extractor import (
+    LIST_FIELDS,
+    MemoryExtractor,
+    MessageType,
+    ProjectState,
+    REQUIRED_FIELDS,
+    StateField,
+    resolve_extractor_model,
+)
 from state_manager import StateManager
 from module3 import (
     ObjectiveContext,
@@ -26,10 +40,20 @@ from module3 import (
     field_of,
     FAMILIES_BY_FIELD,
 )
-from module4 import ResponseStrategy, ResponseStrategyEngine, build_prompt as build_module4_prompt
+from module4 import (
+    ResponseStrategy,
+    ResponseStrategyEngine,
+    build_prompt as build_module4_prompt,
+)
 from module4.prompt_builder import build_dynamic_prompt
 from conversation_brief import build_brief as build_conversation_brief
-from module5 import EmpathizeSummary, LifecycleDecision, LifecycleManager, SummaryBuilder, summary_presented_marker
+from module5 import (
+    EmpathizeSummary,
+    LifecycleDecision,
+    LifecycleManager,
+    SummaryBuilder,
+    summary_presented_marker,
+)
 
 # Pipeline sub-modules — internal-use imports
 from session_pipeline import _finalize_session, _prepare_turn
@@ -39,7 +63,11 @@ from extraction_pipeline import (
     merge_extracted_to_state,
     rule_fields_missed_by_llm,
 )
-from conversation_pipeline import _apply_extraction_to_state, _build_journey_fallback, enforce_mentor_reply
+from conversation_pipeline import (
+    _apply_extraction_to_state,
+    _build_journey_fallback,
+    enforce_mentor_reply,
+)
 
 # Observation-only rule-vs-LLM extraction comparison (Developer Console + audit)
 from extraction_comparison import compare_extraction, field_label
@@ -87,6 +115,19 @@ from conversation_failure_audit import (
     ConversationFailureSummary,
     analyze_conversation_failure,
     conversation_failure_diagnostics_section,
+)
+
+# Measurement-only pretrained text classification (HuggingFace transformers,
+# no fine-tuning). Sentiment of the user's message + an independent zero-shot
+# shadow vote on Module 1's MessageType. NEVER influences state, objectives,
+# lifecycle, prompts, extraction, or replies -- Developer Console only.
+from sentiment import (
+    analyze_sentiment,
+    sentiment_diagnostics_section,
+)
+from message_classifier import (
+    classify_message,
+    message_classification_diagnostics_section,
 )
 
 # Adaptive Coaching Strategy — determines HOW to continue the conversation
@@ -166,6 +207,13 @@ from session_pipeline import MentorSession, build_mentor_session  # noqa: F401
 from extraction_pipeline import strip_model_output  # noqa: F401
 from conversation_pipeline import build_deterministic_fallback  # noqa: F401
 
+# Context window for the mentor response call (mirrors server.LLM_NUM_CTX).
+# 1024 tokens matches autotweak profile and saves massive KV memory on CPU.
+LLM_NUM_CTX = int(os.getenv("LLM_NUM_CTX", "1024"))
+
+# Reply KV-cache anchor (default off on CPU inference to prevent 10x prefill slowdown).
+REPLY_CACHE_ANCHOR = os.getenv("REPLY_CACHE_ANCHOR", "false").lower() == "true"
+
 
 # ---------------------------------------------------------------------------
 # Answer-satisfaction check: does the latest user message answer the question
@@ -174,54 +222,162 @@ from conversation_pipeline import build_deterministic_fallback  # noqa: F401
 
 # Frequency cadence tokens (mirrors module3.sufficiency._CADENCE_TOKENS)
 _CADENCE_TOKENS: tuple[str, ...] = (
-    "daily", "weekly", "monthly", "yearly", "annually", "hourly", "nightly",
+    "daily",
+    "weekly",
+    "monthly",
+    "yearly",
+    "annually",
+    "hourly",
+    "nightly",
     "fortnightly",
-    "every day", "every single day", "each day", "every week", "each week",
-    "every month", "every morning", "every evening", "every night",
-    "every afternoon", "every weekend", "every weekday",
-    "all the time", "most days", "most of the time", "most weeks",
+    "every day",
+    "every single day",
+    "each day",
+    "every week",
+    "each week",
+    "every month",
+    "every morning",
+    "every evening",
+    "every night",
+    "every afternoon",
+    "every weekend",
+    "every weekday",
+    "all the time",
+    "most days",
+    "most of the time",
+    "most weeks",
     "on most days",
-    "often", "sometimes", "always", "constantly", "regularly", "frequently",
-    "occasionally", "rarely", "seldom", "usually", "normally", "typically",
+    "often",
+    "sometimes",
+    "always",
+    "constantly",
+    "regularly",
+    "frequently",
+    "occasionally",
+    "rarely",
+    "seldom",
+    "usually",
+    "normally",
+    "typically",
     "never",
-    "once in a while", "from time to time", "every so often", "now and then",
+    "once in a while",
+    "from time to time",
+    "every so often",
+    "now and then",
     "at times",
 )
 
 # Quantitative frequency tokens (mirrors module3.sufficiency._QUANTITATIVE_TOKENS)
 _QUANTITATIVE_TOKENS: tuple[str, ...] = (
-    "times", "per day", "per week", "per month", "per year", "per hour",
-    "once a day", "once a week", "once a month", "twice a day", "twice a week",
-    "twice a month", "a day", "a week", "a month", "an hour", "a year",
-    "couple of", "few times", "several times",
-    "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+    "times",
+    "per day",
+    "per week",
+    "per month",
+    "per year",
+    "per hour",
+    "once a day",
+    "once a week",
+    "once a month",
+    "twice a day",
+    "twice a week",
+    "twice a month",
+    "a day",
+    "a week",
+    "a month",
+    "an hour",
+    "a year",
+    "couple of",
+    "few times",
+    "several times",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
 )
 
 # Context/situation tokens - answers to "in what situations", "when", "where"
 _CONTEXT_TOKENS: tuple[str, ...] = (
-    "anywhere", "everywhere", "always", "all situations", "any situation",
-    "any context", "universal", "regardless", "no matter", "doesn't matter",
-    "works everywhere", "works anywhere", "applies everywhere", "applies anywhere",
+    "anywhere",
+    "everywhere",
+    "always",
+    "all situations",
+    "any situation",
+    "any context",
+    "universal",
+    "regardless",
+    "no matter",
+    "doesn't matter",
+    "works everywhere",
+    "works anywhere",
+    "applies everywhere",
+    "applies anywhere",
 )
 
 # Negation tokens - answers like "never", "don't help", "not effective"
 _NEGATION_TOKENS: tuple[str, ...] = (
-    "don't help", "doesn't help", "not help", "never help", "never works",
-    "not effective", "ineffective", "useless", "pointless", "waste",
-    "don't work", "doesn't work", "won't work", "can't work",
+    "don't help",
+    "doesn't help",
+    "not help",
+    "never help",
+    "never works",
+    "not effective",
+    "ineffective",
+    "useless",
+    "pointless",
+    "waste",
+    "don't work",
+    "doesn't work",
+    "won't work",
+    "can't work",
 )
 
 # Motivation/implication tokens - answers to "what motivates", "why"
 _MOTIVATION_TOKENS: tuple[str, ...] = (
-    "because", "since", "as ", "reason", "motivat", "driven", "drive",
-    "want to", "need to", "have to", "must", "can't", "cannot", "unable",
-    "no choice", "only way", "forced", "necessary", "essential",
+    "because",
+    "since",
+    "as ",
+    "reason",
+    "motivat",
+    "driven",
+    "drive",
+    "want to",
+    "need to",
+    "have to",
+    "must",
+    "can't",
+    "cannot",
+    "unable",
+    "no choice",
+    "only way",
+    "forced",
+    "necessary",
+    "essential",
 )
 
 _MOTIVATION_TOKENS_EXCLUDING_BECAUSE: tuple[str, ...] = (
-    "since", "as ", "reason", "motivat", "driven", "drive",
-    "want to", "need to", "have to", "must", "can't", "cannot", "unable",
-    "no choice", "only way", "forced", "necessary", "essential",
+    "since",
+    "as ",
+    "reason",
+    "motivat",
+    "driven",
+    "drive",
+    "want to",
+    "need to",
+    "have to",
+    "must",
+    "can't",
+    "cannot",
+    "unable",
+    "no choice",
+    "only way",
+    "forced",
+    "necessary",
+    "essential",
 )
 
 
@@ -238,7 +394,9 @@ def _has_digits(text: str) -> bool:
     return any(ch.isdigit() for ch in text)
 
 
-def _message_satisfies_field(user_message: str, field: StateField, project_state: ProjectState) -> bool:
+def _message_satisfies_field(
+    user_message: str, field: StateField, project_state: ProjectState
+) -> bool:
     """
     Check if the user's latest message contains an answer that would make
     `field` sufficient. This catches implicit answers that extraction may miss.
@@ -280,9 +438,15 @@ def _message_satisfies_field(user_message: str, field: StateField, project_state
             return True
         if _matches_any(text, _MOTIVATION_TOKENS_EXCLUDING_BECAUSE):
             return True
-        if re.search(r"\b(unable|don't have|do not have|can't prevent|prevents me from)\b", lowered):
+        if re.search(
+            r"\b(unable|don't have|do not have|can't prevent|prevents me from)\b",
+            lowered,
+        ):
             return True
-        if re.search(r"\b(stress|frustrat|worry|hurt|pain|annoy|bother|overwhelm|anxiety)\b", lowered):
+        if re.search(
+            r"\b(stress|frustrat|worry|hurt|pain|annoy|bother|overwhelm|anxiety)\b",
+            lowered,
+        ):
             return True
 
     elif field is StateField.CURRENT_SOLUTIONS:
@@ -294,23 +458,34 @@ def _message_satisfies_field(user_message: str, field: StateField, project_state
             return True
         if _matches_any(text, _CONTEXT_TOKENS):
             return True
-        if re.search(r"\b(reduces? the burden|makes? (them|it) (start|easier|it easier|avoid)|helps?|effective|works)\b", lowered):
+        if re.search(
+            r"\b(reduces? the burden|makes? (them|it) (start|easier|it easier|avoid)|helps?|effective|works)\b",
+            lowered,
+        ):
             return True
 
     elif field is StateField.EVIDENCE:
         # Evidence: observation, research, data keywords
         # Recognize interview/interviewed/interviews/interviewing
-        if re.search(r"\b(seen|observed|\binterview\w*|research|data|study|survey|witnessed|noticed)\b", lowered):
+        if re.search(
+            r"\b(seen|observed|\binterview\w*|research|data|study|survey|witnessed|noticed)\b",
+            lowered,
+        ):
             return True
 
     elif field is StateField.PERSONAS:
         # Personas: explicit who statements
-        if re.search(r"\b(who|audience|users?|people|personas|target|demographic)\b", lowered):
+        if re.search(
+            r"\b(who|audience|users?|people|personas|target|demographic)\b", lowered
+        ):
             return True
 
     elif field is StateField.PROBLEMS:
         # Problems: explicit problem keywords
-        if re.search(r"\b(problem|issue|challenge|forget|miss|struggle|difficult|trouble)\b", lowered):
+        if re.search(
+            r"\b(problem|issue|challenge|forget|miss|struggle|difficult|trouble)\b",
+            lowered,
+        ):
             return True
 
     return False
@@ -367,14 +542,23 @@ STAGE_EMPATHIZE_COMPLETE = "Empathize_Complete"
 # Checklist Manager - read-only Empathize coverage report for dashboards
 # ---------------------------------------------------------------------------
 
+
 class ChecklistManager:
     _FIELD_MAP = [
         ("target_audience", "target audience", StateField.PERSONAS),
         ("pain_point", "pain point", StateField.PROBLEMS),
         ("motivation", "motivation", StateField.PAIN_POINTS),
-        ("existing_solution", "existing solution or current workflow", StateField.CURRENT_SOLUTIONS),
+        (
+            "existing_solution",
+            "existing solution or current workflow",
+            StateField.CURRENT_SOLUTIONS,
+        ),
         ("frequency", "frequency of the problem", StateField.FREQUENCY),
-        ("evidence", "evidence or observations validating the problem", StateField.EVIDENCE),
+        (
+            "evidence",
+            "evidence or observations validating the problem",
+            StateField.EVIDENCE,
+        ),
     ]
 
     @staticmethod
@@ -457,7 +641,9 @@ def _safety_intercept(user_message, model_name, project_name):
     return SAFETY_REFUSAL_REPLY, MentorSession(project_name), timing, diagnostics
 
 
-def process_mentor_turn(user_message, username="User", project_name="MyProject", model_name="llama3.2:1b"):
+def process_mentor_turn(
+    user_message, username="User", project_name="MyProject", model_name="llama3.2:1b"
+):
     storage_project_name = project_name or "MyProject"
 
     # Phase 1.5 latency audit: one TurnProfiler per turn. Observation-only
@@ -514,11 +700,10 @@ def process_mentor_turn(user_message, username="User", project_name="MyProject",
         ContextMode.CORRECTION,
     )
     extraction_suppressed = False
+    _cache_anchor = None
     if dt_paused and gate_context.mode in _SUPPRESSING_MODES:
         probe_text = strip_pivot_language(user_message)
-        probe_updates = rule_update_dicts(
-            RuleBasedExtractor.extract(probe_text)
-        )
+        probe_updates = rule_update_dicts(RuleBasedExtractor.extract(probe_text))
         _capture["gate_extraction_probe_updates"] = len(probe_updates)
         if not probe_updates:
             extraction_suppressed = True
@@ -537,8 +722,13 @@ def process_mentor_turn(user_message, username="User", project_name="MyProject",
             )
     else:
         with _span(prof, "extraction"):
-            _extract_and_update_state(
-                user_message, project_state, session_data, model_name, last_assistant_msg, storage_project_name,
+            _cache_anchor = _extract_and_update_state(
+                user_message,
+                project_state,
+                session_data,
+                model_name,
+                last_assistant_msg,
+                storage_project_name,
                 _capture=_capture,
                 _prof=prof,
             )
@@ -556,10 +746,11 @@ def process_mentor_turn(user_message, username="User", project_name="MyProject",
     extraction_message_type = _capture.get("extraction_message_type")
     with _span(prof, "objective"):
         objective, candidate_strategy = _determine_objective(
-            project_state, session_data,
+            project_state,
+            session_data,
             latest_user_message=user_message,
             extraction_message_type=extraction_message_type,
-            extraction_updates=_capture.get("extraction_updates", [])
+            extraction_updates=_capture.get("extraction_updates", []),
         )
     t3 = time.perf_counter()
 
@@ -596,7 +787,9 @@ def process_mentor_turn(user_message, username="User", project_name="MyProject",
     with _span(prof, "lifecycle"):
         _inject_lifecycle_marker(project_state, session_data)
 
-        lifecycle_decision = _resolve_lifecycle(project_state, objective, candidate_strategy, session_data)
+        lifecycle_decision = _resolve_lifecycle(
+            project_state, objective, candidate_strategy, session_data
+        )
 
         empathize_summary, response_strategy = _branch_on_lifecycle(
             lifecycle_decision, project_state, candidate_strategy, session_data
@@ -623,10 +816,17 @@ def process_mentor_turn(user_message, username="User", project_name="MyProject",
     _gen_timing = {}
     with _span(prof, "generate_reply"):
         reply = _generate_reply(
-            project_state, objective, response_strategy, last_assistant_msg,
-            user_message, empathize_summary, lifecycle_decision, model_name,
+            project_state,
+            objective,
+            response_strategy,
+            last_assistant_msg,
+            user_message,
+            empathize_summary,
+            lifecycle_decision,
+            model_name,
             family_plan=family_plan,
             session_data=session_data,
+            cache_anchor=_cache_anchor,
             _timing=_gen_timing,
             _capture=_capture,
             _prof=prof,
@@ -635,7 +835,11 @@ def process_mentor_turn(user_message, username="User", project_name="MyProject",
 
     with _span(prof, "finalize"):
         session = _finalize_session(
-            reply, lifecycle_decision, session_data, project_state, storage_project_name,
+            reply,
+            lifecycle_decision,
+            session_data,
+            project_state,
+            storage_project_name,
             # Family hygiene: a paused conversational reply (acknowledgment /
             # clarification) must not register as a newly asked DT question
             # family. Normal turns record exactly as before.
@@ -659,15 +863,15 @@ def process_mentor_turn(user_message, username="User", project_name="MyProject",
                 objective_advancement=objective.advancement,
                 selection_trace=objective.selection_trace,
                 question_family=_capture.get("question_family"),
-            family_plan=_capture.get("family_plan") or {},
-            guard_blocked=bool(_capture.get("guard_blocked")),
-            state_before=_capture.get("state_before", {}),
-            state_after=_capture.get("state_after", {}),
-            recovery=_capture.get("recovery") or {},
-            memory=session_data.conversation_memory.to_dict(),
-            lifecycle_decision=lifecycle_decision.value,
-            response_strategy=response_strategy.value,
-        )
+                family_plan=_capture.get("family_plan") or {},
+                guard_blocked=bool(_capture.get("guard_blocked")),
+                state_before=_capture.get("state_before", {}),
+                state_after=_capture.get("state_after", {}),
+                recovery=_capture.get("recovery") or {},
+                memory=session_data.conversation_memory.to_dict(),
+                lifecycle_decision=lifecycle_decision.value,
+                response_strategy=response_strategy.value,
+            )
             _capture["mentor_decision"] = _decision_record
             session_data.mentor_decision_summary.add_record(_decision_record)
         except Exception as _exc:
@@ -720,6 +924,28 @@ def process_mentor_turn(user_message, username="User", project_name="MyProject",
         except Exception as _exc:
             print(f"[ConversationFailureAudit] failed to record turn: {_exc}")
 
+    # Measurement-only pretrained text classification (opt-in via
+    # SENTIMENT_ENABLED / CLASSIFIER_ENABLED, both default OFF: no model runs,
+    # conversation behavior and decisions stay byte-identical). Sentiment of
+    # the user's message + an independent zero-shot shadow vote on Module 1's
+    # MessageType, recorded ONLY for the Developer Console. Neither signal is
+    # read by any decision path. Wrapped so a classifier problem can never
+    # break the conversation.
+    with _span(prof, "audit_classification"):
+        try:
+            _sentiment = analyze_sentiment(user_message)
+            _capture["sentiment"] = _sentiment.to_dict()
+        except Exception as _exc:
+            print(f"[SentimentAudit] failed to record turn: {_exc}")
+        try:
+            _shadow = classify_message(
+                user_message,
+                rule_label=_capture.get("extraction_message_type") or "",
+            )
+            _capture["message_classification"] = _shadow.to_dict()
+        except Exception as _exc:
+            print(f"[MessageClassifier] failed to record turn: {_exc}")
+
     # Measurement-only audit of the end-to-end product experience: startup
     # timing, session restoration, Developer Console shape/cost, conversation
     # export size, and per-turn performance timeline. NEVER feeds a decision
@@ -753,8 +979,14 @@ def process_mentor_turn(user_message, username="User", project_name="MyProject",
             # "diagnostics_shadow" span) — measured, not yet deduplicated.
             with _span(prof, "diagnostics_shadow"):
                 _shadow_diagnostics = _build_diagnostics(
-                    session_data, objective, response_strategy,
-                    lifecycle_decision, session, project_state, _capture, model_name,
+                    session_data,
+                    objective,
+                    response_strategy,
+                    lifecycle_decision,
+                    session,
+                    project_state,
+                    _capture,
+                    model_name,
                 )
             _pexp_record = analyze_product_experience(
                 turn_index=len(session_data.turn_metrics) + 1,
@@ -765,7 +997,11 @@ def process_mentor_turn(user_message, username="User", project_name="MyProject",
                 first_turn=first_turn,
                 history_count_at_start=history_at_start,
                 turn_metrics_at_start=metrics_at_start,
-                startup_timestamp=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z") if first_turn else "",
+                startup_timestamp=datetime.now(timezone.utc)
+                .isoformat()
+                .replace("+00:00", "Z")
+                if first_turn
+                else "",
             )
             _capture["product_experience"] = _pexp_record
             session_data.product_experience_summary.add_record(_pexp_record)
@@ -775,8 +1011,12 @@ def process_mentor_turn(user_message, username="User", project_name="MyProject",
     # Observation-only: record this turn's metrics for the Developer Console.
     with _span(prof, "record_turn"):
         record_turn(
-            session_data, _capture, objective, response_strategy,
-            lifecycle_decision, reply,
+            session_data,
+            _capture,
+            objective,
+            response_strategy,
+            lifecycle_decision,
+            reply,
         )
     t6 = time.perf_counter()
 
@@ -798,8 +1038,14 @@ def process_mentor_turn(user_message, username="User", project_name="MyProject",
     timing.profile = prof.to_dict()
     with _span(prof, "diagnostics_final"):
         diagnostics = _build_diagnostics(
-            session_data, objective, response_strategy, lifecycle_decision,
-            session, project_state, _capture, model_name,
+            session_data,
+            objective,
+            response_strategy,
+            lifecycle_decision,
+            session,
+            project_state,
+            _capture,
+            model_name,
         )
     timing.profile = prof.to_dict()
     return reply, session, timing, diagnostics
@@ -861,9 +1107,7 @@ def _advancement_delta(state_before: dict, project_state, objective) -> dict:
         for sf in REQUIRED_FIELDS
         if not before.is_satisfied(sf) and after.is_satisfied(sf)
     ]
-    stayed_active = [
-        sf.value for sf in REQUIRED_FIELDS if not after.is_satisfied(sf)
-    ]
+    stayed_active = [sf.value for sf in REQUIRED_FIELDS if not after.is_satisfied(sf)]
 
     if objective.is_wrap_up:
         verdict = "WRAP_UP"
@@ -895,7 +1139,16 @@ def _advancement_delta(state_before: dict, project_state, objective) -> dict:
     }
 
 
-def _build_diagnostics(session_data, objective, response_strategy, lifecycle_decision, session, project_state, capture, model_name):
+def _build_diagnostics(
+    session_data,
+    objective,
+    response_strategy,
+    lifecycle_decision,
+    session,
+    project_state,
+    capture,
+    model_name,
+):
     """Read-only snapshot of this turn's runtime state. No computation,
     no mutation, no persistence — just existing objects projected to dicts."""
 
@@ -945,16 +1198,28 @@ def _build_diagnostics(session_data, objective, response_strategy, lifecycle_dec
         },
         "ExtractionComparison": _build_extraction_comparison_section(capture),
         "ExtractionAccuracy": _build_extraction_accuracy_section(capture),
-        "ExtractionAccuracySummary": _build_extraction_accuracy_summary_section(session_data),
+        "ExtractionAccuracySummary": _build_extraction_accuracy_summary_section(
+            session_data
+        ),
         "MentorDecision": _build_mentor_decision_section(capture),
         "MentorDecisionSummary": _build_mentor_decision_summary_section(session_data),
         "ConversationStyle": _build_conversation_style_section(capture),
         "ReplyEnforcement": _build_reply_enforcement_section(capture, session_data),
-        "ConversationStyleSummary": _build_conversation_style_summary_section(session_data),
+        "ConversationStyleSummary": _build_conversation_style_summary_section(
+            session_data
+        ),
         "ProductExperience": _build_product_experience_section(capture),
-        "ProductExperienceSummary": _build_product_experience_summary_section(session_data),
+        "ProductExperienceSummary": _build_product_experience_summary_section(
+            session_data
+        ),
         "ConversationFailure": _build_conversation_failure_section(capture),
-        "ConversationFailureSummary": _build_conversation_failure_summary_section(session_data),
+        "ConversationFailureSummary": _build_conversation_failure_summary_section(
+            session_data
+        ),
+        "SentimentAnalysis": sentiment_diagnostics_section(capture.get("sentiment")),
+        "MessageClassification": message_classification_diagnostics_section(
+            capture.get("message_classification")
+        ),
         "HybridExtraction": _build_hybrid_extraction_section(capture),
         "SemanticComplexity": _build_complexity_section(capture),
         "QuestionHistory": list(session_data.previous_questions),
@@ -1009,9 +1274,11 @@ def _build_conversation_context_section(capture):
         section["DT Steering Paused"] = bool(capture.get("dt_paused"))
     if section and capture.get("gate_extraction_probe_updates") is not None:
         section["Extraction Probe Updates"] = capture.get(
-            "gate_extraction_probe_updates")
+            "gate_extraction_probe_updates"
+        )
         section["Extraction Suppressed"] = bool(
-            capture.get("gate_extraction_suppressed"))
+            capture.get("gate_extraction_suppressed")
+        )
     return section
 
 
@@ -1026,7 +1293,9 @@ def _build_extraction_comparison_section(capture):
         "Rule Extractor": [field_label(f) for f in record["rule_fields"]],
         "LLM Extractor": [field_label(f) for f in record["llm_fields"]],
         "Fields That Match": [field_label(f) for f in record["matching_fields"]],
-        "Fields Only Found by Rules": [field_label(f) for f in record["rule_only_fields"]],
+        "Fields Only Found by Rules": [
+            field_label(f) for f in record["rule_only_fields"]
+        ],
         "Fields Only Found by LLM": [field_label(f) for f in record["llm_only_fields"]],
         "Decision": {
             "Rule sufficient": "Yes" if record["rule_sufficient"] else "No",
@@ -1161,8 +1430,7 @@ def _build_mentor_decision_section(capture):
     return {
         "Current Objective": record.get("objective"),
         "Alternative Objectives": [
-            f"{a['objective']} (score {a['score']:.2f})"
-            for a in alt
+            f"{a['objective']} (score {a['score']:.2f})" for a in alt
         ],
         "Decision Confidence": record.get("objective_confidence"),
         "Reason": record.get("objective_reason"),
@@ -1173,7 +1441,9 @@ def _build_mentor_decision_section(capture):
         "Question Quality": record.get("question_quality"),
         "Quality Reason": record.get("quality_reason"),
         "Objective Appropriate": "Yes" if record.get("objective_appropriate") else "No",
-        "Acknowledged Information": "Yes" if record.get("acknowledged_information") else "No",
+        "Acknowledged Information": "Yes"
+        if record.get("acknowledged_information")
+        else "No",
         "Restarted Topic": "Yes" if record.get("restarted_topic") else "No",
         "Better Alternative": (
             record["better_alternative"]["objective"]
@@ -1203,7 +1473,6 @@ def _build_conversation_style_section(capture):
     return conversation_style_diagnostics_section(record)
 
 
-
 def _build_reply_enforcement_section(capture, session_data):
     """Developer Console projection of the reply-enforcement guard.
 
@@ -1222,6 +1491,7 @@ def _build_reply_enforcement_section(capture, session_data):
     if count:
         out["Session Blocked Replies"] = count
     return out
+
 
 def _build_conversation_style_summary_section(session_data):
     """Measurement-only running aggregate of per-turn reply-style audits
@@ -1306,15 +1576,32 @@ def _build_question_family_section(capture, session_data):
         ]
     return section
 
-def _extract_and_update_state(user_message, project_state, session_data, model_name, last_assistant_msg, storage_project_name, _capture=None, _prof=None):
+
+def _extract_and_update_state(
+    user_message,
+    project_state,
+    session_data,
+    model_name,
+    last_assistant_msg,
+    storage_project_name,
+    _capture=None,
+    _prof=None,
+):
     _timing: dict[str, float] = {}
     _t_total = time.perf_counter()
     extraction_updates: List[dict] = []
+    # Reply KV-cache anchor (REPLY_CACHE_ANCHOR): exact extraction prompt +
+    # raw model output from THIS turn's LLM call, returned to the caller for
+    # _generate_reply. None whenever the LLM did not run (gate skip) or its
+    # output was unavailable. Never stored in diagnostics.
+    cache_anchor: dict | None = None
 
     # Measurement-only: snapshot the pre-extraction state so the shadow audit
     # can simulate the LLM path without touching the live state. Only taken
     # when the audit is enabled (zero cost otherwise).
-    _audit_state_before = copy.deepcopy(project_state) if _hybrid_audit_enabled() else None
+    _audit_state_before = (
+        copy.deepcopy(project_state) if _hybrid_audit_enabled() else None
+    )
 
     # Step 1 — deterministic rule extraction. Always runs: it feeds the
     # objective-aware hybrid decision below and the existing fallback path.
@@ -1341,8 +1628,14 @@ def _extract_and_update_state(user_message, project_state, session_data, model_n
             _timing=_timing,
             _prof=_prof,
         )
+        _anchor_prompt = getattr(extractor, "_last_prompt", None)
+        _anchor_raw = getattr(extractor, "_last_raw_output", None)
+        if _anchor_prompt and _anchor_raw:
+            cache_anchor = {"prompt": _anchor_prompt, "raw": _anchor_raw}
         if _capture is not None:
-            _capture["extraction_updates"] = [u.to_dict() for u in extraction_result.updates]
+            _capture["extraction_updates"] = [
+                u.to_dict() for u in extraction_result.updates
+            ]
             _capture["extraction_message_type"] = extraction_result.message_type.value
         print(
             f"[MemoryExtractor] type={extraction_result.message_type.value} "
@@ -1401,15 +1694,27 @@ def _extract_and_update_state(user_message, project_state, session_data, model_n
             # a natural answer (e.g. "It happens every single day.") is still
             # captured and the mentor does not re-ask the same question.
             extracted = InputProcessor.extract_structured_data(
-                model_name, user_message, storage_project_name, project_state=project_state, _timing=_timing, _prof=_prof
+                model_name,
+                user_message,
+                storage_project_name,
+                project_state=project_state,
+                _timing=_timing,
+                _prof=_prof,
             )
             if _capture is not None:
                 _capture["rule_based_extraction"] = extracted
-            merge_extracted_to_state(project_state, session_data, extracted, _timing=_timing)
+            merge_extracted_to_state(
+                project_state, session_data, extracted, _timing=_timing
+            )
             # If the rule-based fallback produced meaningful updates after an
             # AMBIGUOUS LLM extraction, mark the message type as MEANINGFUL
             # so the answer-satisfaction check in _determine_objective() runs.
-            if _capture is not None and extracted and _capture.get("extraction_message_type") != MessageType.MEANINGFUL.value:
+            if (
+                _capture is not None
+                and extracted
+                and _capture.get("extraction_message_type")
+                != MessageType.MEANINGFUL.value
+            ):
                 _capture["extraction_message_type"] = MessageType.MEANINGFUL.value
     else:
         # Step 3 — the deterministic extraction satisfies the current
@@ -1426,7 +1731,9 @@ def _extract_and_update_state(user_message, project_state, session_data, model_n
             f"field={hybrid_decision['objective_field']} satisfied by "
             f"deterministic extraction; LLM extraction skipped"
         )
-        merge_extracted_to_state(project_state, session_data, rule_observation, _timing=_timing)
+        merge_extracted_to_state(
+            project_state, session_data, rule_observation, _timing=_timing
+        )
 
         # Measurement-only shadow audit (HYBRID_AUDIT=true): run the LLM
         # extractor in shadow mode WITHOUT applying its result, to quantify
@@ -1469,28 +1776,57 @@ def _extract_and_update_state(user_message, project_state, session_data, model_n
         memory = getattr(session_data, "conversation_memory", None)
         if memory is not None:
             user_lower = user_message.strip().lower()
-            extracted_field_values = {u.get("field") for u in (extraction_updates or [])}
+            extracted_field_values = {
+                u.get("field") for u in (extraction_updates or [])
+            }
             # Keywords per REQUIRED_FIELD that indicate the user is stating
             # something about that field voluntarily.  Using keyword sets is
             # more robust than substring-on-the-field-name alone.
             field_keywords: dict[StateField, tuple[str, ...]] = {
                 StateField.PERSONAS: (
-                    "who", "people", "users", "audience", "target", "personas",
+                    "who",
+                    "people",
+                    "users",
+                    "audience",
+                    "target",
+                    "personas",
                 ),
                 StateField.PROBLEMS: (
-                    "problem", "issue", "challenge", "trouble", "struggle",
+                    "problem",
+                    "issue",
+                    "challenge",
+                    "trouble",
+                    "struggle",
                 ),
                 StateField.CURRENT_SOLUTIONS: (
-                    "solution", "workaround", "currently", "tool", "software",
+                    "solution",
+                    "workaround",
+                    "currently",
+                    "tool",
+                    "software",
                 ),
                 StateField.PAIN_POINTS: (
-                    "pain", "frustrat", "stress", "worry", "hurt", "annoy",
+                    "pain",
+                    "frustrat",
+                    "stress",
+                    "worry",
+                    "hurt",
+                    "annoy",
                 ),
                 StateField.EVIDENCE: (
-                    "seen", "observed", "research", "data", "studied", "interview",
+                    "seen",
+                    "observed",
+                    "research",
+                    "data",
+                    "studied",
+                    "interview",
                 ),
                 StateField.FREQUENCY: (
-                    "frequency", "often", "daily", "weekly", "cadence",
+                    "frequency",
+                    "often",
+                    "daily",
+                    "weekly",
+                    "cadence",
                 ),
             }
             for sf, keywords in field_keywords.items():
@@ -1498,8 +1834,19 @@ def _extract_and_update_state(user_message, project_state, session_data, model_n
                     if sf.value not in extracted_field_values:
                         _record_user_stated_facts(memory, sf.value)
 
+    return cache_anchor
 
-def _run_shadow_audit(rule_observation, project_state, session_data, user_message, last_assistant_msg, state_before, _timing=None, _prof=None):
+
+def _run_shadow_audit(
+    rule_observation,
+    project_state,
+    session_data,
+    user_message,
+    last_assistant_msg,
+    state_before,
+    _timing=None,
+    _prof=None,
+):
     """Run the LLM extractor in shadow mode for one hybrid skip and record
     the comparison. Measurement only: the shadow result is never applied to
     ``project_state`` and never influences any decision."""
@@ -1535,7 +1882,13 @@ def _run_shadow_audit(rule_observation, project_state, session_data, user_messag
     return record
 
 
-def _determine_objective(project_state, session_data=None, latest_user_message=None, extraction_message_type=None, extraction_updates=None):
+def _determine_objective(
+    project_state,
+    session_data=None,
+    latest_user_message=None,
+    extraction_message_type=None,
+    extraction_updates=None,
+):
     """Run the Objective Engine over the current state, feeding it a
     read-only conversation context (raw user messages + asked question
     families) so information-gain scoring can prefer what the user has
@@ -1582,11 +1935,15 @@ def _determine_objective(project_state, session_data=None, latest_user_message=N
             families_for_field = FAMILIES_BY_FIELD.get(targeted, ())
             asked_families = set(session_data.asked_question_families)
             family_asked = any(f.value in asked_families for f in families_for_field)
-            if family_asked and _message_satisfies_field(latest_user_message, targeted, project_state):
+            if family_asked and _message_satisfies_field(
+                latest_user_message, targeted, project_state
+            ):
                 # Create a temporary state where this field is satisfied
                 satisfied_state = _make_field_satisfied(project_state, targeted)
                 # Re-run objective selection with the satisfied state
-                objective = _OBJECTIVE_ENGINE.determine_next(satisfied_state, context=context)
+                objective = _OBJECTIVE_ENGINE.determine_next(
+                    satisfied_state, context=context
+                )
                 print(
                     f"[AnswerSatisfaction] field={targeted.value} satisfied by latest message "
                     f"(extraction missed, family asked); advanced to objective={objective.objective.value}"
@@ -1598,10 +1955,7 @@ def _determine_objective(project_state, session_data=None, latest_user_message=N
     # ProjectState.  This prevents re-asking about facts the user already
     # established, while still distinguishing established context from a direct
     # answer to a question the mentor asked.
-    if (
-        objective.targeted_field() is not None
-        and session_data is not None
-    ):
+    if objective.targeted_field() is not None and session_data is not None:
         targeted = objective.targeted_field()
         memory = getattr(session_data, "conversation_memory", None)
         if memory is not None:
@@ -1612,7 +1966,9 @@ def _determine_objective(project_state, session_data=None, latest_user_message=N
             if known_for_targeted:
                 asked_families = set(session_data.asked_question_families)
                 families_for_field = FAMILIES_BY_FIELD.get(targeted, ())
-                family_asked = any(f.value in asked_families for f in families_for_field)
+                family_asked = any(
+                    f.value in asked_families for f in families_for_field
+                )
                 if family_asked:
                     # Advance objective based on established context only,
                     # without marking the field satisfied in ProjectState.
@@ -1707,7 +2063,9 @@ def _resolve_lifecycle(project_state, objective, candidate_strategy, session_dat
     return lifecycle_decision
 
 
-def _branch_on_lifecycle(lifecycle_decision, project_state, candidate_strategy, session_data):
+def _branch_on_lifecycle(
+    lifecycle_decision, project_state, candidate_strategy, session_data
+):
     empathize_summary: EmpathizeSummary | None = None
     response_strategy: ResponseStrategy = candidate_strategy
 
@@ -1719,10 +2077,18 @@ def _branch_on_lifecycle(lifecycle_decision, project_state, candidate_strategy, 
         response_strategy = ResponseStrategy.GENERATE_SUMMARY
         print(
             f"[SummaryBuilder] summary has "
-            f"{sum(len(getattr(empathize_summary, f) or []) for f in (
-                'personas', 'problems', 'current_solutions',
-                'pain_points', 'evidence'
-            ))} list items, frequency={empathize_summary.frequency!r}"
+            f"{
+                sum(
+                    len(getattr(empathize_summary, f) or [])
+                    for f in (
+                        'personas',
+                        'problems',
+                        'current_solutions',
+                        'pain_points',
+                        'evidence',
+                    )
+                )
+            } list items, frequency={empathize_summary.frequency!r}"
         )
 
     elif lifecycle_decision is LifecycleDecision.WAITING_FOR_CONFIRMATION:
@@ -1736,8 +2102,7 @@ def _branch_on_lifecycle(lifecycle_decision, project_state, candidate_strategy, 
 
     else:
         raise RuntimeError(
-            f"LifecycleManager returned an unsupported decision: "
-            f"{lifecycle_decision!r}"
+            f"LifecycleManager returned an unsupported decision: {lifecycle_decision!r}"
         )
 
     print(f"[ResponseStrategyEngine] strategy={response_strategy.value}")
@@ -1755,8 +2120,14 @@ def _family_display_label(value):
 
 
 def _build_turn_brief(
-    _capture, objective, coaching_strategy, lifecycle_decision,
-    session_data, family_to_ask, asked_families, user_message,
+    _capture,
+    objective,
+    coaching_strategy,
+    lifecycle_decision,
+    session_data,
+    family_to_ask,
+    asked_families,
+    user_message,
 ):
     """Compose the transient Phase 1 Conversation Brief (read-only).
 
@@ -1775,15 +2146,9 @@ def _build_turn_brief(
         state_before=capture.get("state_before"),
         state_after=capture.get("state_after"),
         objective=objective,
-        coaching=(
-            coaching_strategy.value
-            if coaching_strategy is not None
-            else None
-        ),
+        coaching=(coaching_strategy.value if coaching_strategy is not None else None),
         lifecycle=(
-            lifecycle_decision.value
-            if lifecycle_decision is not None
-            else None
+            lifecycle_decision.value if lifecycle_decision is not None else None
         ),
         fresh_family=family_to_ask.value if family_to_ask is not None else None,
         asked_families=list(asked_families or []),
@@ -1807,7 +2172,22 @@ def _null_span():
     yield
 
 
-def _generate_reply(project_state, objective, response_strategy, last_assistant_msg, user_message, empathize_summary, lifecycle_decision, model_name, family_plan=None, session_data=None, _timing=None, _capture=None, _prof=None):
+def _generate_reply(
+    project_state,
+    objective,
+    response_strategy,
+    last_assistant_msg,
+    user_message,
+    empathize_summary,
+    lifecycle_decision,
+    model_name,
+    family_plan=None,
+    session_data=None,
+    cache_anchor=None,
+    _timing=None,
+    _capture=None,
+    _prof=None,
+):
     if _timing is None:
         _timing = {}
 
@@ -1817,14 +2197,10 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
     # avoid-families bullet, no DT template fallback). The Objective Engine
     # decision itself is untouched and resumes canonically next turn.
     dt_paused = bool((_capture or {}).get("dt_paused"))
-    context_mode = getattr(
-        (_capture or {}).get("conversation_context"), "mode", None
-    )
+    context_mode = getattr((_capture or {}).get("conversation_context"), "mode", None)
 
     family_to_ask = family_plan.selected if family_plan is not None else None
-    asked_families = (
-        list(family_plan.asked_families) if family_plan is not None else []
-    )
+    asked_families = list(family_plan.asked_families) if family_plan is not None else []
     if dt_paused:
         family_to_ask = None
         asked_families = []
@@ -1838,9 +2214,12 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
         session_data is not None
         and response_strategy is not ResponseStrategy.GENERATE_SUMMARY
     ):
-        resume_hint = memory_to_prompt_bullets(
-            session_data, current_target=objective.targeted_field()
-        ) or None
+        resume_hint = (
+            memory_to_prompt_bullets(
+                session_data, current_target=objective.targeted_field()
+            )
+            or None
+        )
 
     t_prompt_start = time.perf_counter()
 
@@ -1850,6 +2229,7 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
     coaching_strategy, coaching_reason = None, ""
     if session_data is not None:
         from session_manager import get_session_manager
+
         sd = get_session_manager().get_active_session_data()
         memory = getattr(sd, "conversation_memory", None)
         coaching_strategy, coaching_reason = determine_coaching_strategy(
@@ -1861,19 +2241,20 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
             user_message=user_message,
             previous_assistant_reply=last_assistant_msg or "",
             recovery_category=(
-                (_capture.get("recovery") or {}).get("Category")
-                if _capture else None
+                (_capture.get("recovery") or {}).get("Category") if _capture else None
             ),
             memory_open_threads=list(getattr(memory, "open_threads", [])),
             memory_deferred_topics=list(getattr(memory, "deferred_topics", [])),
             memory_resolved_threads=list(getattr(memory, "resolved_threads", [])),
             objective_completed_fields=(
                 [sf.value for sf in objective.completed_fields]
-                if hasattr(objective, "completed_fields") else None
+                if hasattr(objective, "completed_fields")
+                else None
             ),
             objective_missing_fields=(
                 [sf.value for sf in objective.missing_fields]
-                if hasattr(objective, "missing_fields") else None
+                if hasattr(objective, "missing_fields")
+                else None
             ),
         )
     if _capture is not None:
@@ -1882,7 +2263,8 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
 
     coaching_bullet = (
         coaching_instruction_bullet(coaching_strategy)
-        if coaching_strategy is not None else None
+        if coaching_strategy is not None
+        else None
     )
     extra_bullets = None
     if coaching_bullet:
@@ -1892,7 +2274,10 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
     # the prompt.  Purely deterministic guidance; never changes extraction,
     # objectives, lifecycle, or ProjectState.
     insight_type, insight_confidence, insight_explanation, insight_signals = (
-        InsightType.NONE, None, "", []
+        InsightType.NONE,
+        None,
+        "",
+        [],
     )
     if _capture is not None:
         insight_type, insight_confidence, insight_explanation, insight_signals = (
@@ -1903,11 +2288,11 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
                 memory=getattr(session_data, "conversation_memory", None),
                 recovery_category=(
                     (_capture.get("recovery") or {}).get("Category")
-                    if _capture else None
+                    if _capture
+                    else None
                 ),
                 extraction_updates=(
-                    _capture.get("extraction_updates")
-                    if _capture else None
+                    _capture.get("extraction_updates") if _capture else None
                 ),
             )
         )
@@ -1929,10 +2314,15 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
     # intention for the next reply.  Purely deterministic guidance; never
     # changes extraction, objectives, lifecycle, or ProjectState.
     conversation_move, move_reason, move_signals = (
-        ConversationMove.ELICIT_INFORMATION, "", []
+        ConversationMove.ELICIT_INFORMATION,
+        "",
+        [],
     )
-    memory_for_move = getattr(session_data, "conversation_memory", None) \
-        if session_data is not None else None
+    memory_for_move = (
+        getattr(session_data, "conversation_memory", None)
+        if session_data is not None
+        else None
+    )
     conversation_move, move_reason, move_signals = determine_conversation_move(
         current_objective=objective.objective.value,
         coaching_strategy=(
@@ -1952,23 +2342,28 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
         memory_open_threads=list(getattr(memory_for_move, "open_threads", [])),
         memory_deferred_topics=list(getattr(memory_for_move, "deferred_topics", [])),
         memory_resolved_threads=list(getattr(memory_for_move, "resolved_threads", [])),
-        memory_partially_answered=list(getattr(memory_for_move, "partially_answered_objectives", [])),
+        memory_partially_answered=list(
+            getattr(memory_for_move, "partially_answered_objectives", [])
+        ),
         objective_advancement=getattr(objective, "advancement", None),
         objective_completed_fields=(
             [sf.value for sf in objective.completed_fields]
-            if hasattr(objective, "completed_fields") else None
+            if hasattr(objective, "completed_fields")
+            else None
         ),
         objective_missing_fields=(
             [sf.value for sf in objective.missing_fields]
-            if hasattr(objective, "missing_fields") else None
+            if hasattr(objective, "missing_fields")
+            else None
         ),
         recovery_category=(
-            (_capture.get("recovery") or {}).get("Category")
-            if _capture else None
+            (_capture.get("recovery") or {}).get("Category") if _capture else None
         ),
         summary_presented=bool(
             getattr(session_data, "empathize_summary_presented", False)
-        ) if session_data is not None else False,
+        )
+        if session_data is not None
+        else False,
     )
     if _capture is not None:
         _capture["conversation_move"] = conversation_move
@@ -1983,9 +2378,7 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
     # situation (correction / topic shift / direct question / confusion).
     # Guidance only — never a response template. Normal turns get no extra
     # bullet here, so their prompts stay byte-identical.
-    context_bullet = (
-        context_instruction_bullet(context_mode) if dt_paused else None
-    )
+    context_bullet = context_instruction_bullet(context_mode) if dt_paused else None
     if context_bullet:
         extra_bullets = list(extra_bullets or []) + [context_bullet]
 
@@ -2052,7 +2445,9 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
                 brief=brief,
                 state_after=(_capture or {}).get("state_after"),
                 memory=getattr(session_data, "conversation_memory", None),
-                conversation_history=getattr(session_data, "conversation_history", None),
+                conversation_history=getattr(
+                    session_data, "conversation_history", None
+                ),
                 last_assistant_message=last_assistant_msg,
                 current_target=_targeted.value if _targeted is not None else None,
             )
@@ -2073,7 +2468,8 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
                         _family_display_label(v) for v in (asked_families or [])
                     )
                     if label
-                ] or None,
+                ]
+                or None,
             )
             if _capture is not None:
                 _capture["prompt"] = prompt
@@ -2082,15 +2478,12 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
     if dt_paused:
         # Paused conversational turn: the deterministic path must NOT push
         # the questionnaire either. Use the mode's conversational fallback.
-        fallback_reply = (
-            paused_turn_fallback(context_mode)
-            or _build_journey_fallback(
-                lifecycle_decision=lifecycle_decision,
-                conversation_objective=objective,
-                response_strategy=response_strategy,
-                project_state=project_state,
-                empathize_summary=empathize_summary,
-            )
+        fallback_reply = paused_turn_fallback(context_mode) or _build_journey_fallback(
+            lifecycle_decision=lifecycle_decision,
+            conversation_objective=objective,
+            response_strategy=response_strategy,
+            project_state=project_state,
+            empathize_summary=empathize_summary,
         )
     else:
         fallback_reply = _build_journey_fallback(
@@ -2104,43 +2497,103 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
     t_prompt_end = time.perf_counter()
     _timing["prompt_ms"] = (t_prompt_end - t_prompt_start) * 1000
 
+    from memory_extractor import _GREETING_PATTERN
+
+    if user_message and _GREETING_PATTERN.match(user_message.strip()):
+        _timing["llm_ms"] = 0
+        if not project_state.personas:
+            return "Hello! I am your Design Thinking coach. To get started, who are you designing for — can you describe the people you want to help?"
+        return f"Hello! Let's continue with your project. {fallback_reply}"
+
     reply = fallback_reply
+    user_words = (user_message or "").strip().split()
+    fast_short_enabled = os.getenv("FAST_SHORT_REPLIES", "false").lower() == "true"
+    dynamic_phrasing_enabled = os.getenv("DYNAMIC_SHORT_PHRASING", "false").lower() == "true"
+    max_fast_words = int(os.getenv("FAST_SHORT_REPLIES_MAX_WORDS", "30"))
+    skip_llm_call = (
+        fast_short_enabled
+        and len(user_words) <= max_fast_words
+        and not dt_paused
+        and fallback_reply
+    )
+    if (
+        skip_llm_call
+        and dynamic_phrasing_enabled
+        and response_strategy is not ResponseStrategy.GENERATE_SUMMARY
+        and ". " in fallback_reply
+    ):
+        _SHORT_LEAD_INS = [
+            "Got it.",
+            "That makes a lot of sense.",
+            "Understood.",
+            "Thanks for clarifying that.",
+            "Good, that's helpful context.",
+            "That's very clear.",
+        ]
+        history = getattr(session_data, "conversation_history", []) if session_data else []
+        turn_idx = len(history)
+        lead_in = _SHORT_LEAD_INS[turn_idx % len(_SHORT_LEAD_INS)]
+        reply = f"{lead_in} {fallback_reply.split('. ', 1)[1]}"
+
     t_llm_start = time.perf_counter()
-    try:
-        response = timed_ollama_chat(
-            _prof,
-            purpose="response_generation",
-            model=model_name,
-            messages=[{"role": "user", "content": prompt}],
-            options={"temperature": 0.4, "top_p": 0.85, "num_predict": 150},
-            gated=False,  # the response call always runs (fallback on error)
-        )
-        llm_reply = strip_model_output(response["message"]["content"])
-        reply = enforce_mentor_reply(
-            llm_reply,
-            fallback_reply,
-            allow_summary=(
-                response_strategy is ResponseStrategy.GENERATE_SUMMARY
-                or objective.is_wrap_up
-            ),
-            # Paused conversational turns may answer with a pure statement;
-            # advice-marker protection and word limits stay active.
-            # Phase 1 dynamic coach: statement-licensed situations (correction
-            # acknowledgment, side-question answer, confusion repair) also
-            # permit a question-less reply; the question remains the normal
-            # mechanism everywhere else.
-            allow_statement=(dt_paused or brief.statement_allowed),
-            capture=_capture,
-        )
-    except Exception as e:
-        print(f"LLM question generation failed, using template fallback: {e}")
-        if _capture is not None:
-            _capture["enforce_blocked"] = True
-            _capture["enforce_reason"] = "llm_error"
-    t_llm_end = time.perf_counter()
-    _timing["llm_ms"] = (t_llm_end - t_llm_start) * 1000
-    if _capture is not None and _capture.get("enforce_blocked"):
-        session_data.reply_enforcement_blocked += 1
+    if skip_llm_call:
+        _timing["llm_ms"] = 0
+    else:
+        # KV-cache anchor (REPLY_CACHE_ANCHOR): replay this turn's exact
+        # extraction exchange ahead of the reply prompt so the request shares a
+        # byte-identical prefix with the extraction call Ollama just evaluated.
+        # Falls back to the plain single-message call whenever the gate skipped
+        # extraction or the anchor is unavailable/disabled.
+        _messages = [{"role": "user", "content": prompt}]
+        if REPLY_CACHE_ANCHOR and cache_anchor:
+            _messages = [
+                {"role": "user", "content": cache_anchor["prompt"]},
+                {"role": "assistant", "content": cache_anchor["raw"]},
+                {"role": "user", "content": prompt},
+            ]
+        print(f"[ReplyCache] anchored={len(_messages) > 1} messages={len(_messages)}")
+        try:
+            response = timed_ollama_chat(
+                _prof,
+                purpose="response_generation",
+                model=model_name,
+                messages=_messages,
+                options={
+                    "temperature": 0.4,
+                    "top_p": 0.85,
+                    # Mentor replies are short single questions (enforce_mentor_reply
+                    # caps them at 55 words) — 80 tokens is ample headroom.
+                    "num_predict": 80,
+                    "num_ctx": LLM_NUM_CTX,
+                },
+                gated=False,  # the response call always runs (fallback on error)
+            )
+            llm_reply = strip_model_output(response["message"]["content"])
+            reply = enforce_mentor_reply(
+                llm_reply,
+                fallback_reply,
+                allow_summary=(
+                    response_strategy is ResponseStrategy.GENERATE_SUMMARY
+                    or objective.is_wrap_up
+                ),
+                # Paused conversational turns may answer with a pure statement;
+                # advice-marker protection and word limits stay active.
+                # Phase 1 dynamic coach: statement-licensed situations (correction
+                # acknowledgment, side-question answer, confusion repair) also
+                # permit a question-less reply; the question remains the normal
+                # mechanism everywhere else.
+                allow_statement=(dt_paused or brief.statement_allowed),
+                capture=_capture,
+            )
+        except Exception as e:
+            print(f"LLM question generation failed, using template fallback: {e}")
+            if _capture is not None:
+                _capture["enforce_blocked"] = True
+                _capture["enforce_reason"] = "llm_error"
+        t_llm_end = time.perf_counter()
+        _timing["llm_ms"] = (t_llm_end - t_llm_start) * 1000
+        if _capture is not None and _capture.get("enforce_blocked"):
+            session_data.reply_enforcement_blocked += 1
 
     # Semantic de-duplication guard: if the produced question repeats a family
     # that was already asked (and the answers for that field were sufficient,
@@ -2195,8 +2648,15 @@ def _generate_reply(project_state, objective, response_strategy, last_assistant_
 # Dashboard
 # ---------------------------------------------------------------------------
 
+
 def print_ascii_dashboard(session, project_state=None):
-    GREEN, YELLOW, CYAN, BOLD, RESET = "\033[92m", "\033[93m", "\033[96m", "\033[1m", "\033[0m"
+    GREEN, YELLOW, CYAN, BOLD, RESET = (
+        "\033[92m",
+        "\033[93m",
+        "\033[96m",
+        "\033[1m",
+        "\033[0m",
+    )
     print(f"\n{BOLD}{CYAN}{'=' * 60}{RESET}")
     print(f"{BOLD}{CYAN}  AI DESIGN THINKING MENTOR (EMPATHIZE){RESET}")
     print(f"{BOLD}{CYAN}{'=' * 60}{RESET}")

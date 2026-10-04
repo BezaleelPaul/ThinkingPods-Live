@@ -12,6 +12,21 @@ if platform.system() == "Windows":
 else:
     common["start_new_session"] = True
 
+# Set Optimized Hardware & Pipeline Defaults
+os.environ.setdefault("OLLAMA_BASE_MODEL", "qwen2.5:3b")
+os.environ.setdefault("MENTOR_MODEL", "optimized-pods")
+os.environ.setdefault("LLM_NUM_CTX", "1024")
+os.environ.setdefault("REPLY_CACHE_ANCHOR", "false")
+os.environ.setdefault("FAST_SHORT_REPLIES", "true")
+os.environ.setdefault("DYNAMIC_SHORT_PHRASING", "true")
+os.environ.setdefault("COMPLEXITY_GATE", "false")
+os.environ.setdefault("WHISPER_MODEL", "tiny.en")
+os.environ.setdefault("OLLAMA_VULKAN", "1")
+os.environ.setdefault("SENTIMENT_ENABLED", "true")
+os.environ.setdefault("CLASSIFIER_ENABLED", "true")
+os.environ.setdefault("MENTOR_USE_LLM_EXTRACTION", "false")
+os.environ.setdefault("FAST_SHORT_REPLIES_MAX_WORDS", "30")
+
 # Run Dynamic Hardware Profiler & Auto-Tweaker
 try:
     print("Initializing hardware optimization settings...")

@@ -10,14 +10,26 @@ import urllib.parse
 import ollama
 import numpy as np
 from memory import SemanticHistoryRetriever
-from mentor import process_mentor_turn, ChecklistManager, MentorSession, strip_model_output, build_mentor_session
+from mentor import (
+    process_mentor_turn,
+    ChecklistManager,
+    MentorSession,
+    strip_model_output,
+    build_mentor_session,
+)
 from session_manager import get_session_manager, SessionMetadata
 from session_lifecycle import SessionLifecycle
 
 import threading
 from collections import defaultdict
 import time
-from constants import MERMAID_KEYWORDS, LLM_LOADING_MSG_VERBOSE, LLM_LOADING_MSG_CONCISE, BRAIN_MODEL_LOADING_MSG, VOICE_OR_BRAIN_MODEL_LOADING_MSG
+from constants import (
+    MERMAID_KEYWORDS,
+    LLM_LOADING_MSG_VERBOSE,
+    LLM_LOADING_MSG_CONCISE,
+    BRAIN_MODEL_LOADING_MSG,
+    VOICE_OR_BRAIN_MODEL_LOADING_MSG,
+)
 
 # --- Startup optimization ---------------------------------------------------
 # torch / faster_whisper / scipy are heavy (they transitively pull in
@@ -40,38 +52,87 @@ app.add_middleware(
     expose_headers=["X-Reply", "X-Transcript", "X-Timing", "X-Diagnostics"],
 )
 
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # --- Models ---
-MODELS = {
-    "llm": None,
-    "stt": None,
-    "tts": None
-}
+MODELS = {"llm": None, "stt": None, "tts": None}
+
+# Multi-model hardware calibration: detects physical cores and available RAM
+# to prevent CPU thread thrashing and memory exhaustion across concurrent models
+# (Ollama LLM, Faster-Whisper STT, Silero TTS, DistilBERT, DistilBART).
+def _detect_system_limits():
+    try:
+        from autotweak import get_physical_cores, get_total_ram_gb
+        cores = get_physical_cores()
+        ram = get_total_ram_gb()
+    except Exception:
+        cores = 2
+        ram = 8.0
+    return max(1, min(cores, 4)), ram
+
+_OPTIMAL_THREADS, _SYSTEM_RAM = _detect_system_limits()
+
+# Context window for every ollama.chat() call:
+# On RAM-constrained machines (<8GB RAM), 1024 prevents KV cache memory blowup;
+# otherwise 2048/4096 gives full headroom.
+LLM_NUM_CTX = int(os.getenv("LLM_NUM_CTX", "1024" if _SYSTEM_RAM < 8.0 else "2048"))
 
 # Conversation history per user (username -> SemanticHistoryRetriever)
-conversation_histories = defaultdict(lambda: SemanticHistoryRetriever(max_history=int(os.getenv("MAX_HISTORY", "50"))))
+conversation_histories = defaultdict(
+    lambda: SemanticHistoryRetriever(max_history=int(os.getenv("MAX_HISTORY", "50")))
+)
 history_lock = threading.Lock()
+
+
+def _load_llm_with_retry():
+    """Resolve the Ollama model, retrying until Ollama is reachable.
+
+    Checks the optimized profile (e.g. optimized-pods) first, with fallback to
+    the base model (e.g. qwen2.5:3b).
+    """
+    preferred_model = os.getenv("MENTOR_MODEL", "optimized-pods")
+    fallback_model = os.getenv("OLLAMA_BASE_MODEL", "qwen2.5:3b")
+    candidates = [preferred_model]
+    if fallback_model not in candidates:
+        candidates.append(fallback_model)
+
+    print(f"\n  Checking Ollama model: {' -> '.join(candidates)}")
+    attempt = 0
+    while MODELS["llm"] is None:
+        attempt += 1
+        for candidate in candidates:
+            try:
+                ollama.show(candidate)
+                MODELS["llm"] = candidate
+                print(f"  [OK] Mentor model ready: {candidate} (attempt {attempt})")
+                return
+            except Exception:
+                pass
+        if attempt == 1 or attempt % 12 == 0:
+            print(f"  [WAIT] Ollama model not ready (attempt {attempt})")
+        if attempt == 1:
+            print(
+                "  Waiting for Ollama — start it with `ollama serve` (or the desktop app)."
+            )
+        time.sleep(5)
+
 
 def load_models():
     try:
         import torch
 
-        # --- Optimization for Intel HD 620 / Laptop CPUs ---
-        torch.set_num_threads(4)
+        # --- Optimization for Laptop CPUs & Multi-Model Concurrency ---
+        # Threads capped to physical cores to eliminate context-switch stalls
+        torch.set_num_threads(_OPTIMAL_THREADS)
 
-        print("Loading models...")
+        print(f"Loading models (thread allocation: {_OPTIMAL_THREADS})...")
 
-        # 1. LLM (Ollama) — single model for both mentor and extraction
-        mentor_model = os.getenv("MENTOR_MODEL", "qwen2.5:3b")
-        print(f"\n  Checking Ollama model: {mentor_model}")
-        try:
-            ollama.show(mentor_model)
-            MODELS["llm"] = mentor_model
-            print(f"  [OK] Mentor model ready: {mentor_model}")
-        except Exception:
-            print(f"  [FAIL] Model '{mentor_model}' not found.")
-            print(f"  Please ensure Ollama is running and the model is pulled:")
-            print(f"    ollama pull {mentor_model}")
-            MODELS["llm"] = None
+        # 1. LLM (Ollama) — single model for both mentor and extraction.
+        # Retried in its own thread so the server may boot before Ollama.
+        threading.Thread(
+            target=_load_llm_with_retry, daemon=True, name="llm-loader"
+        ).start()
 
         # 2. STT (Whisper)
         try:
@@ -79,48 +140,78 @@ def load_models():
 
             whisper_model_name = os.getenv("WHISPER_MODEL", "tiny.en")
             print(f"\n  Loading Whisper model: {whisper_model_name}...")
-            MODELS["stt"] = WhisperModel(whisper_model_name, device="cpu", compute_type="int8", cpu_threads=4)
-            print(f"  [OK] Whisper ready")
+            MODELS["stt"] = WhisperModel(
+                whisper_model_name,
+                device="cpu",
+                compute_type="int8",
+                cpu_threads=_OPTIMAL_THREADS,
+            )
+            print(f"  [OK] Whisper ready (threads={_OPTIMAL_THREADS})")
         except Exception as e:
             print(f"  [FAIL] STT model failed to load: {e}")
 
         # 3. TTS (Silero)
         try:
-            language = 'en'
-            model_id = 'v3_en'
-            device = torch.device('cpu')
-            model, _ = torch.hub.load(repo_or_dir='snakers4/silero-models',
-                                                    model='silero_tts',
-                                                    language=language,
-                                                    speaker=model_id,
-                                                    trust_repo=True,
-                                                    force_reload=False)
+            language = "en"
+            model_id = "v3_en"
+            device = torch.device("cpu")
+            model, _ = torch.hub.load(
+                repo_or_dir="snakers4/silero-models",
+                model="silero_tts",
+                language=language,
+                speaker=model_id,
+                trust_repo=True,
+                force_reload=False,
+            )
             model.to(device)
             MODELS["tts"] = model
-            print(f"  [OK] TTS model ready")
         except Exception as e:
             print(f"  [FAIL] TTS model failed to load: {e}")
+
+        # 4. Optional Pre-warming for observation classifiers (Sentiment & Classifier)
+        try:
+            import sentiment
+            if sentiment.enabled():
+                print("  Pre-warming Sentiment pipeline...")
+                sentiment.analyze_sentiment("hello")
+                print("  [OK] Sentiment pipeline ready")
+        except Exception as e:
+            print(f"  [WARN] Sentiment pre-warm skipped: {e}")
+
+        try:
+            import message_classifier
+            if message_classifier.enabled():
+                print("  Pre-warming Message Classifier pipeline...")
+                message_classifier.classify_message("hello", "NO_UPDATE")
+                print("  [OK] Message Classifier pipeline ready")
+        except Exception as e:
+            print(f"  [WARN] Message Classifier pre-warm skipped: {e}")
 
         print("\n  Application ready.\n")
     except Exception as e:
         print(f"Fatal error during model loading: {e}")
 
+
 # Load models in background to not block startup
 threading.Thread(target=load_models, daemon=True).start()
+
 
 # --- Helper Functions ---
 def get_history(username):
     with history_lock:
         return conversation_histories[username].history
 
+
 def add_to_history(username, role, content):
     with history_lock:
         conversation_histories[username].add_turn(role, content)
+
 
 def clear_history(username):
     with history_lock:
         if username in conversation_histories:
             del conversation_histories[username]
+
 
 def should_use_mentor(interaction_mode, pod):
     """Route to mentor pipeline during Empathize/Discovery in Coach mode."""
@@ -131,17 +222,32 @@ def should_use_mentor(interaction_mode, pod):
 
 
 def mentor_model_name():
-    """Use the single configured mentor LLM model."""
-    return os.getenv("MENTOR_MODEL", "qwen2.5:3b")
+    """Use the configured or loaded mentor LLM model."""
+    if MODELS.get("llm"):
+        return MODELS["llm"]
+    return os.getenv("MENTOR_MODEL", "optimized-pods")
 
-def generate_llm_response(text, pod, username, context_doc="", interaction_mode="Helpful Assistant"):
+
+def generate_llm_response(
+    text, pod, username, context_doc="", interaction_mode="Helpful Assistant"
+):
     if not MODELS["llm"]:
         return LLM_LOADING_MSG_VERBOSE
 
     # Interaction Mode System Prompts
     if interaction_mode == "Design Thinking Coach":
         # Original strict DT approach - no direct solutions
-        if pod == "general" or any(k in text.lower() for k in ["help", "journey", "document", "documentation", "presentation", "commercialization"]):
+        if pod == "general" or any(
+            k in text.lower()
+            for k in [
+                "help",
+                "journey",
+                "document",
+                "documentation",
+                "presentation",
+                "commercialization",
+            ]
+        ):
             system_prompt = """You are ThinkingPods, a professional Design Thinking Consultant.
 Your tone is encouraging, insightful, highly structured, and natural.
 When the user shares their project journey or asks for feedback on documentation, analyze it by highlighting **problem-solving under constraints** (e.g., budget limits, hardware restrictions, and optimization iterations).
@@ -179,7 +285,17 @@ CRITICAL: Do NOT offer direct solutions or answers—guide the user to discover 
 
     elif interaction_mode == "Helpful Assistant":
         # ChatGPT-like: conversational, solution-oriented, helpful
-        if pod == "general" or any(k in text.lower() for k in ["help", "journey", "document", "documentation", "presentation", "commercialization"]):
+        if pod == "general" or any(
+            k in text.lower()
+            for k in [
+                "help",
+                "journey",
+                "document",
+                "documentation",
+                "presentation",
+                "commercialization",
+            ]
+        ):
             system_prompt = """You are ThinkingPods, a helpful and knowledgeable assistant. You are conversational, solution-oriented, and eager to help the user achieve their goals.
 You can provide direct suggestions, ideas, and answers when appropriate, while still maintaining a thoughtful and structured approach.
 When discussing projects or documentation, offer practical advice on structure, content, and presentation.
@@ -197,7 +313,17 @@ Offer clear, actionable suggestions for improving requirements, and help the use
 Be precise, professional, and helpful—don't hesitate to provide direct input when it advances the user's goals."""
 
     else:  # "Balanced" - mix of both approaches (default/original behavior)
-        if pod == "general" or any(k in text.lower() for k in ["help", "journey", "document", "documentation", "presentation", "commercialization"]):
+        if pod == "general" or any(
+            k in text.lower()
+            for k in [
+                "help",
+                "journey",
+                "document",
+                "documentation",
+                "presentation",
+                "commercialization",
+            ]
+        ):
             system_prompt = """You are ThinkingPods, a professional Design Thinking Consultant.
 Your tone is encouraging, insightful, highly structured, and natural.
 When the user shares their project journey or asks for feedback on documentation, analyze it by highlighting **problem-solving under constraints** (e.g., budget limits, hardware restrictions, and optimization iterations).
@@ -246,22 +372,29 @@ IMPORTANT: Do NOT use hashtags (#) and focus on being helpful."""
         # Check that it's not within the immediate sliding window of the last 4 turns (2 user exchanges)
         if idx < len(history) - 4:
             user_msg = history[idx]
-            recalled_messages.append(f"User said: \"{user_msg['content']}\"")
+            recalled_messages.append(f'User said: "{user_msg["content"]}"')
             if idx + 1 < len(history):
                 ast_msg = history[idx + 1]
-                if ast_msg['role'] == 'assistant':
-                    recalled_messages.append(f"ThinkingPods replied: \"{ast_msg['content']}\"")
+                if ast_msg["role"] == "assistant":
+                    recalled_messages.append(
+                        f'ThinkingPods replied: "{ast_msg["content"]}"'
+                    )
 
     memory_context = ""
     if recalled_messages:
         memory_context = (
-            "\n[RECALLED CONTEXT FROM EARLIER IN THIS DIALOGUE]:\n" +
-            "\n".join(recalled_messages) +
-            "\n(Use this recalled context only if the user is referring back to a past topic or project details. Otherwise, proceed with the current topic.)\n"
+            "\n[RECALLED CONTEXT FROM EARLIER IN THIS DIALOGUE]:\n"
+            + "\n".join(recalled_messages)
+            + "\n(Use this recalled context only if the user is referring back to a past topic or project details. Otherwise, proceed with the current topic.)\n"
         )
 
     # Format for Ollama API
-    messages = [{"role": "system", "content": f"{system_prompt}\n\n{doc_context}\n{memory_context}"}]
+    messages = [
+        {
+            "role": "system",
+            "content": f"{system_prompt}\n\n{doc_context}\n{memory_context}",
+        }
+    ]
 
     # Add short-term history (sliding window of the last 4 turns)
     for msg in history[-4:]:
@@ -271,12 +404,9 @@ IMPORTANT: Do NOT use hashtags (#) and focus on being helpful."""
         response = ollama.chat(
             model=MODELS["llm"],
             messages=messages,
-            options={
-                "temperature": 0.7,
-                "top_p": 0.9
-            }
+            options={"temperature": 0.7, "top_p": 0.9, "num_ctx": LLM_NUM_CTX},
         )
-        reply = response['message']['content'].strip()
+        reply = response["message"]["content"].strip()
         reply = strip_model_output(reply)
         if not reply:
             reply = "I completed my reasoning but didn't produce a final response. Could you please prompt me again?"
@@ -284,6 +414,7 @@ IMPORTANT: Do NOT use hashtags (#) and focus on being helpful."""
     except Exception as e:
         print(f"Ollama generation error: {e}")
         return "I encountered an error while thinking. Is Ollama running?"
+
 
 def get_speech(text):
     if not MODELS["tts"]:
@@ -295,9 +426,12 @@ def get_speech(text):
         clean_text = text.replace("*", "").replace("#", "").replace("_", "")
 
         sample_rate = 48000
-        speaker = 'en_21' # Using a more expressive speaker
-        # silero apply_tts returns a torch tensor
-        audio = MODELS["tts"].apply_tts(text=clean_text, speaker=speaker, sample_rate=sample_rate)
+        speaker = "en_21"  # Using a more expressive speaker
+        with torch.inference_mode():
+            # silero apply_tts returns a torch tensor
+            audio = MODELS["tts"].apply_tts(
+                text=clean_text, speaker=speaker, sample_rate=sample_rate
+            )
 
         # Explicitly convert to numpy and then to int16 for maximum compatibility
         audio_numpy = (audio.numpy() * 32767).astype(np.int16)
@@ -309,9 +443,20 @@ def get_speech(text):
         print(f"TTS generation error: {e}")
         return None
 
+
+# Cache for Mermaid diagram generations: (username, history_len, context_doc) -> diagram
+_mermaid_cache: dict[tuple[str, int, str], str] = {}
+
+
 def generate_mermaid_diagram(username, context_doc=""):
     if not MODELS["llm"]:
         return LLM_LOADING_MSG_CONCISE
+
+    history = get_history(username)
+    cache_key = (username, len(history), context_doc)
+    if cache_key in _mermaid_cache:
+        print(f"[{username}] Returning cached Mermaid diagram...")
+        return _mermaid_cache[cache_key]
 
     system_prompt = """You are an Expert System Architect.
 Your ONLY task is to generate valid Mermaid.js diagram code based on the conversation.
@@ -319,15 +464,17 @@ Valid types: graph TD, flowchart LR, sequenceDiagram, stateDiagram-v2.
 CRITICAL: Output ONLY the code inside a ```mermaid block. No conversation, no explanations."""
 
     doc_context = f"\n[LOCAL VAULT DATA]:\n{context_doc}\n" if context_doc else ""
-    history = get_history(username)
 
     messages = [{"role": "system", "content": f"{system_prompt}\n\n{doc_context}"}]
     for msg in history:
         messages.append({"role": msg["role"], "content": msg["content"]})
 
     try:
-        response = ollama.chat(model=MODELS["llm"], messages=messages)
-        raw_text = response['message']['content'].strip()
+        model = MODELS["llm"] or mentor_model_name()
+        response = ollama.chat(
+            model=model, messages=messages, options={"num_ctx": LLM_NUM_CTX}
+        )
+        raw_text = response["message"]["content"].strip()
         raw_text = strip_model_output(raw_text)
         print(f"DEBUG: Raw Mermaid Response: {raw_text[:200]}...")
 
@@ -353,12 +500,15 @@ CRITICAL: Output ONLY the code inside a ```mermaid block. No conversation, no ex
             diagram = "graph TD\n" + diagram
 
         print(f"DEBUG: Final Cleaned Diagram: {diagram[:200]}...")
+        _mermaid_cache[cache_key] = diagram
         return diagram
     except Exception as e:
         print(f"Mermaid generation error: {e}")
         return "graph TD\n  A[Error] --> B[Could not generate diagram]"
 
+
 # --- API Endpoints ---
+
 
 @app.post("/visualize")
 def visualize(data: dict = Body(...)):
@@ -371,9 +521,10 @@ def visualize(data: dict = Body(...)):
     # We return it as text; frontend will handle rendering
     headers = {
         "X-Reply": urllib.parse.quote(diagram_code),
-        "Access-Control-Expose-Headers": "X-Reply"
+        "Access-Control-Expose-Headers": "X-Reply",
     }
     return Response(content=diagram_code, media_type="text/plain", headers=headers)
+
 
 @app.get("/health")
 async def health():
@@ -385,8 +536,9 @@ async def health():
         "llm_ready": MODELS["llm"] is not None,
         "tts_loaded": MODELS["tts"] is not None,
         "turns": {},
-        "ctx": {}
+        "ctx": {},
     }
+
 
 @app.post("/generate_requirements")
 def generate_requirements(prompt: str = Body(..., embed=True)):
@@ -402,15 +554,18 @@ Be precise and avoid ambiguous language like "should" — use "shall"."""
 
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Context: {prompt}\n\nRequirements:"}
+            {"role": "user", "content": f"Context: {prompt}\n\nRequirements:"},
         ]
 
-        response = ollama.chat(model=MODELS["llm"], messages=messages)
-        result = response['message']['content'].strip()
+        response = ollama.chat(
+            model=MODELS["llm"], messages=messages, options={"num_ctx": LLM_NUM_CTX}
+        )
+        result = response["message"]["content"].strip()
         result = strip_model_output(result)
         return {"requirement": result}
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+
 
 @app.post("/start")
 def start(data: dict = Body(...)):
@@ -426,9 +581,10 @@ def start(data: dict = Body(...)):
 
     headers = {
         "X-Reply": urllib.parse.quote(reply),
-        "Access-Control-Expose-Headers": "X-Reply, X-Transcript"
+        "Access-Control-Expose-Headers": "X-Reply, X-Transcript",
     }
     return Response(content=audio, media_type="audio/wav", headers=headers)
+
 
 @app.post("/text")
 @app.post("/mentor/chat")
@@ -448,23 +604,34 @@ def text_input(data: dict = Body(...)):
 
     print(f"[{username}] Text Input: {user_text[:50]}...")
     add_to_history(username, "user", user_text)
-    
+
     timing_dict = None
     diagnostics_dict = None
     if mentor_route:
-        reply, _, _timing, _diag = process_mentor_turn(user_text, username=username, project_name=project_name, model_name=mentor_model_name())
+        reply, _, _timing, _diag = process_mentor_turn(
+            user_text,
+            username=username,
+            project_name=project_name,
+            model_name=mentor_model_name(),
+        )
         timing_dict = _timing.to_dict() if _timing else None
         diagnostics_dict = _diag if _diag else None
     else:
-        reply = generate_llm_response(user_text, pod, username, context_doc=context_doc, interaction_mode=interaction_mode)
-        
+        reply = generate_llm_response(
+            user_text,
+            pod,
+            username,
+            context_doc=context_doc,
+            interaction_mode=interaction_mode,
+        )
+
     add_to_history(username, "assistant", reply)
-    
+
     audio = get_speech(reply) if enable_voice else None
 
     headers = {
         "X-Reply": urllib.parse.quote(reply),
-        "Access-Control-Expose-Headers": "X-Reply, X-Transcript"
+        "Access-Control-Expose-Headers": "X-Reply, X-Transcript",
     }
     if timing_dict:
         headers["X-Timing"] = urllib.parse.quote(json.dumps(timing_dict))
@@ -472,7 +639,10 @@ def text_input(data: dict = Body(...)):
     if diagnostics_dict:
         headers["X-Diagnostics"] = urllib.parse.quote(json.dumps(diagnostics_dict))
         headers["Access-Control-Expose-Headers"] += ", X-Diagnostics"
-    return Response(content=audio if audio else b"", media_type="audio/wav", headers=headers)
+    return Response(
+        content=audio if audio else b"", media_type="audio/wav", headers=headers
+    )
+
 
 @app.post("/voice")
 async def voice_input(
@@ -482,11 +652,13 @@ async def voice_input(
     x_project_name: str = Header("MyProject"),
     x_context_doc: str = Header(""),
     x_interaction_mode: str = Header("Design Thinking Coach"),
-    x_enable_voice: str = Header("True")
+    x_enable_voice: str = Header("True"),
 ):
     audio_bytes = await request.body()
     if not MODELS["stt"]:
-         return JSONResponse({"error": VOICE_OR_BRAIN_MODEL_LOADING_MSG}, status_code=503)
+        return JSONResponse(
+            {"error": VOICE_OR_BRAIN_MODEL_LOADING_MSG}, status_code=503
+        )
 
     enable_voice = x_enable_voice.lower() == "true"
     start_time = time.time()
@@ -498,7 +670,7 @@ async def voice_input(
     if audio_data.ndim > 1:
         audio_data = np.mean(audio_data, axis=1).astype(audio_data.dtype)
     # Normalize to float32 [-1, 1] for faster-whisper (handles both int and float PCM)
-    if audio_data.dtype.kind == 'f':
+    if audio_data.dtype.kind == "f":
         audio_float = audio_data.astype(np.float32)
     else:
         audio_float = audio_data.astype(np.float32) / np.iinfo(audio_data.dtype).max
@@ -513,36 +685,56 @@ async def voice_input(
         stt_start = time.time()
         segments, _ = MODELS["stt"].transcribe(
             audio_float,
-            beam_size=5, 
+            beam_size=5,
             language="en",
             initial_prompt="This is a voice recording of a user discussing the Sathnur software village project, rural to urban development, and design thinking. Please transcribe names like Sathnur, software village, rural-urban, and technical terms accurately.",
-            vad_filter=True, 
-            vad_parameters=dict(min_silence_duration_ms=500), 
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500),
             condition_on_previous_text=False,
-            temperature=0.0
+            temperature=0.0,
         )
         # Evaluate segments inside the timing block and filter out background noise/silence
         valid_segments = []
         for s in segments:
-            if s.no_speech_prob < 0.45 and s.avg_logprob > -1.0 and s.compression_ratio < 2.4:
+            if (
+                s.no_speech_prob < 0.45
+                and s.avg_logprob > -1.0
+                and s.compression_ratio < 2.4
+            ):
                 valid_segments.append(s.text)
         transcript = " ".join(valid_segments).strip()
         stt_end = time.time()
         print(f"[{x_username}] Transcript: '{transcript}'")
 
         # Filter out common Whisper hallucinations on silence/noise
-        hallucinations = ["1, 2, 3", "one, two, three", "thank you", "thanks for watching", "subtitle by", "1, 2, 3, 1, 1, 2, 3", "test", "testing", "check"]
+        hallucinations = [
+            "1, 2, 3",
+            "one, two, three",
+            "thank you",
+            "thanks for watching",
+            "subtitle by",
+            "1, 2, 3, 1, 1, 2, 3",
+            "test",
+            "testing",
+            "check",
+        ]
         lower_transcript = transcript.lower()
-        if not transcript or (any(h in lower_transcript for h in hallucinations) and len(transcript) < 30):
-             # If it looks like a test, just acknowledge it briefly without over-analyzing
-             reply = "Mic check received! I can hear you clearly now. What shall we work on?"
-             audio = get_speech(reply) if enable_voice else None
-             headers = {
+        if not transcript or (
+            any(h in lower_transcript for h in hallucinations) and len(transcript) < 30
+        ):
+            # If it looks like a test, just acknowledge it briefly without over-analyzing
+            reply = (
+                "Mic check received! I can hear you clearly now. What shall we work on?"
+            )
+            audio = get_speech(reply) if enable_voice else None
+            headers = {
                 "X-Transcript": urllib.parse.quote(transcript),
                 "X-Reply": urllib.parse.quote(reply),
-                "Access-Control-Expose-Headers": "X-Reply, X-Transcript"
-             }
-             return Response(content=audio if audio else b"", media_type="audio/wav", headers=headers)
+                "Access-Control-Expose-Headers": "X-Reply, X-Transcript",
+            }
+            return Response(
+                content=audio if audio else b"", media_type="audio/wav", headers=headers
+            )
 
         # Determine context
         pod = x_pod
@@ -554,18 +746,29 @@ async def voice_input(
         add_to_history(username, "user", transcript)
         print(f"[{username}] Generating AI response...")
         llm_start = time.time()
-        
+
         timing_dict = None
         diagnostics_dict = None
         if should_use_mentor(interaction_mode, pod):
-            reply, _, _timing, _diag = process_mentor_turn(transcript, username=username, project_name=project_name, model_name=mentor_model_name())
+            reply, _, _timing, _diag = process_mentor_turn(
+                transcript,
+                username=username,
+                project_name=project_name,
+                model_name=mentor_model_name(),
+            )
             timing_dict = _timing.to_dict() if _timing else None
             diagnostics_dict = _diag if _diag else None
         else:
             if not MODELS["llm"]:
                 return JSONResponse({"error": BRAIN_MODEL_LOADING_MSG}, status_code=503)
-            reply = generate_llm_response(transcript, pod, username, context_doc=context_doc, interaction_mode=interaction_mode)
-            
+            reply = generate_llm_response(
+                transcript,
+                pod,
+                username,
+                context_doc=context_doc,
+                interaction_mode=interaction_mode,
+            )
+
         llm_end = time.time()
         add_to_history(username, "assistant", reply)
 
@@ -575,7 +778,9 @@ async def voice_input(
         stt_time = f"{stt_end - stt_start:.2f}"
         llm_time = f"{llm_end - llm_start:.2f}"
         total_time = f"{total_end - start_time:.2f}"
-        print(f"[{username}] Done in {total_time}s (STT: {stt_time}s, LLM: {llm_time}s)")
+        print(
+            f"[{username}] Done in {total_time}s (STT: {stt_time}s, LLM: {llm_time}s)"
+        )
 
         headers = {
             "X-Transcript": urllib.parse.quote(transcript),
@@ -583,7 +788,7 @@ async def voice_input(
             "X-Timing-STT": stt_time,
             "X-Timing-LLM": llm_time,
             "X-Timing-Total": total_time,
-            "Access-Control-Expose-Headers": "X-Reply, X-Transcript, X-Timing-STT, X-Timing-LLM, X-Timing-Total"
+            "Access-Control-Expose-Headers": "X-Reply, X-Transcript, X-Timing-STT, X-Timing-LLM, X-Timing-Total",
         }
         if timing_dict:
             headers["X-Timing"] = urllib.parse.quote(json.dumps(timing_dict))
@@ -591,10 +796,13 @@ async def voice_input(
         if diagnostics_dict:
             headers["X-Diagnostics"] = urllib.parse.quote(json.dumps(diagnostics_dict))
             headers["Access-Control-Expose-Headers"] += ", X-Diagnostics"
-        return Response(content=audio if audio else b"", media_type="audio/wav", headers=headers)
+        return Response(
+            content=audio if audio else b"", media_type="audio/wav", headers=headers
+        )
     except Exception as e:
         print(f"Error in voice_input: {e}")
         return JSONResponse({"error": str(e)}, status_code=500)
+
 
 @app.post("/session/status")
 async def session_status(request: Request):
@@ -604,17 +812,21 @@ async def session_status(request: Request):
     mgr = get_session_manager()
     sd = mgr.get_active_session_data()
     status_dict = ChecklistManager.get_status_dict(sd.project_state)
-    return JSONResponse({
-        "project_name": session.project_name,
-        "current_stage": session.current_stage,
-        "checklist": status_dict,
-        "known_facts": session.known_facts,
-        "assumptions": session.assumptions,
-        "unknown_facts": session.unknown_facts,
-        "open_questions": session.open_questions
-    })
+    return JSONResponse(
+        {
+            "project_name": session.project_name,
+            "current_stage": session.current_stage,
+            "checklist": status_dict,
+            "known_facts": session.known_facts,
+            "assumptions": session.assumptions,
+            "unknown_facts": session.unknown_facts,
+            "open_questions": session.open_questions,
+        }
+    )
+
 
 # --- New Session Management Endpoints ---
+
 
 @app.post("/session/start")
 async def session_start(request: Request):
@@ -639,7 +851,9 @@ async def session_start(request: Request):
 
     decision = SessionLifecycle.decide_startup(
         explicit_restore=(
-            data.get("restore_project") if mode == SessionLifecycle.MODE_RESTORE else None
+            data.get("restore_project")
+            if mode == SessionLifecycle.MODE_RESTORE
+            else None
         ),
         project_name=project_name,
     )
@@ -649,23 +863,25 @@ async def session_start(request: Request):
         clear_history(username)
 
     result = SessionLifecycle.bind_session(session_mgr, decision, username=username)
-    return JSONResponse({
-        "action": result["action"],
-        "mode": result["backend_mode"],
-        "session_id": result["session_id"],
-        "manual_refresh_needed": result["manual_refresh_needed"],
-        "message": f"{result['action']} session bound",
-    })
+    return JSONResponse(
+        {
+            "action": result["action"],
+            "mode": result["backend_mode"],
+            "session_id": result["session_id"],
+            "manual_refresh_needed": result["manual_refresh_needed"],
+            "message": f"{result['action']} session bound",
+        }
+    )
 
 
 @app.post("/session/new")
 async def session_new(request: Request):
     """
     Create a new mentoring session.
-    
+
     Archives the current session (if any) and starts a fresh session with
     empty state. Returns the new session ID.
-    
+
     This clears ALL runtime state:
     - Conversation history
     - Legacy mentor session file (belt-and-suspenders)
@@ -674,20 +890,22 @@ async def session_new(request: Request):
     data = await request.json()
     username = data.get("username", "User")
     project_name = data.get("project_name", "MyProject")
-    
+
     # Clear conversation history for this user
     clear_history(username)
-    
+
     # Create new session via SessionManager (archives old, creates fresh)
     session_mgr = get_session_manager()
     metadata = session_mgr.reset_runtime_state(username=username)
-    
-    return JSONResponse({
-        "session_id": metadata.session_id,
-        "status": "created",
-        "created_at": metadata.created_at,
-        "project_title": metadata.project_title,
-    })
+
+    return JSONResponse(
+        {
+            "session_id": metadata.session_id,
+            "status": "created",
+            "created_at": metadata.created_at,
+            "project_title": metadata.project_title,
+        }
+    )
 
 
 @app.get("/session/list")
@@ -695,9 +913,7 @@ async def session_list():
     """List all available sessions."""
     session_mgr = get_session_manager()
     sessions = session_mgr.list_sessions()
-    return JSONResponse({
-        "sessions": [s.to_dict() for s in sessions]
-    })
+    return JSONResponse({"sessions": [s.to_dict() for s in sessions]})
 
 
 @app.post("/session/switch")
@@ -705,13 +921,13 @@ async def session_switch(request: Request):
     """Switch to a different session."""
     data = await request.json()
     session_id = data.get("session_id", "")
-    
+
     if not session_id:
         return JSONResponse({"error": "session_id required"}, status_code=400)
-    
+
     session_mgr = get_session_manager()
     success = session_mgr.switch_session(session_id)
-    
+
     if success:
         # Also clear conversation history since we're switching context
         username = data.get("username", "User")
@@ -726,7 +942,7 @@ async def session_archive(request: Request):
     """Archive the current active session."""
     session_mgr = get_session_manager()
     success = session_mgr.archive_current_session()
-    
+
     if success:
         return JSONResponse({"status": "ok", "message": "Current session archived"})
     else:
@@ -738,13 +954,15 @@ async def session_active():
     """Get the currently active session metadata."""
     session_mgr = get_session_manager()
     meta = session_mgr.get_active_metadata()
-    
+
     if meta:
         return JSONResponse(meta.to_dict())
     else:
         return JSONResponse({"active": False})
 
+
 # End new session management endpoints
+
 
 @app.post("/reset")
 async def reset(request: Request):
@@ -757,7 +975,11 @@ async def reset(request: Request):
     session_mgr = get_session_manager()
     session_mgr.reset_runtime_state(username=username)
 
-    return {"status": "ok", "message": f"History and mentor session cleared for {username}"}
+    return {
+        "status": "ok",
+        "message": f"History and mentor session cleared for {username}",
+    }
+
 
 # Additional endpoints expected by frontend
 @app.post("/archive/check")
@@ -767,6 +989,7 @@ async def archive_check(request: Request):
     # stub: no archive found
     return JSONResponse({"exists": False, "sessions": 0})
 
+
 @app.post("/archive/load")
 async def archive_load(request: Request):
     data = await request.json()
@@ -774,30 +997,37 @@ async def archive_load(request: Request):
     # stub: return empty sessions
     return JSONResponse({"exists": False, "sessions": [], "projects": []})
 
+
 @app.post("/archive/delete")
 async def archive_delete(request: Request):
     data = await request.json()
     name = data.get("name", "")
     return JSONResponse({"message": f"Archive for {name} deleted (stub)"})
 
+
 @app.get("/debug/llm")
 async def debug_llm():
     # stub info
-    return JSONResponse({
-        "llm_ready": MODELS["llm"] is not None,
-        "llm_url": "local",
-        "status": "ready" if MODELS["llm"] else "not loaded"
-    })
+    return JSONResponse(
+        {
+            "llm_ready": MODELS["llm"] is not None,
+            "llm_url": "local",
+            "status": "ready" if MODELS["llm"] else "not loaded",
+        }
+    )
+
 
 @app.post("/session/save")
 async def session_save(request: Request):
     # stub
     return JSONResponse({"status": "ok", "message": "Session saved (stub)"})
 
+
 @app.post("/session/load")
 async def session_load(request: Request):
     # stub
     return JSONResponse({"turns": {}})
+
 
 @app.get("/tts/test")
 async def tts_test():
@@ -810,9 +1040,11 @@ async def tts_test():
         return Response(status_code=500, content="Failed to generate speech")
     return Response(content=audio, media_type="audio/wav")
 
+
 @app.get("/")
 async def get_index():
     return {"message": "ReqGPT Backend is running! Use the Streamlit app to interact."}
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

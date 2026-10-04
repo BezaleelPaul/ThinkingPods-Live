@@ -49,7 +49,17 @@ fi
 
 # 4. Set Configurations
 export WHISPER_MODEL="tiny.en"
-export MENTOR_MODEL="qwen2.5:3b"
+export OLLAMA_BASE_MODEL="qwen2.5:3b"
+export MENTOR_MODEL="optimized-pods"
+export LLM_NUM_CTX="1024"
+export REPLY_CACHE_ANCHOR="false"
+export FAST_SHORT_REPLIES="true"
+export DYNAMIC_SHORT_PHRASING="true"
+export COMPLEXITY_GATE="false"
+export FAST_SHORT_REPLIES_MAX_WORDS="30"
+export MENTOR_USE_LLM_EXTRACTION="false"
+export SENTIMENT_ENABLED="true"
+export CLASSIFIER_ENABLED="true"
 
 # 5. Clean Port 8000 (Prevents backend launch block)
 echo -e "\n=== Step 3: Checking Port 8000 ==="

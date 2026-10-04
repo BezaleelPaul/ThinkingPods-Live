@@ -164,6 +164,8 @@ DIAG_SECTION_DISPLAY = {
     "ProductExperienceSummary": "Product Experience Summary",
     "ConversationFailure": "Conversation Failure",
     "ConversationFailureSummary": "Conversation Failure Summary",
+    "SentimentAnalysis": "Sentiment Analysis",
+    "MessageClassification": "Message Classification",
     "HybridExtraction": "Hybrid Extraction",
     "SemanticComplexity": "Semantic Complexity",
     "HybridAudit": "Hybrid Audit",
@@ -662,6 +664,8 @@ SECTION_CATEGORIES: Dict[str, str] = {
     "HybridAudit": "Quality Audits",
     "HybridSummary": "Quality Audits",
     "ConversationMetrics": "Quality Audits",
+    "SentimentAnalysis": "Quality Audits",
+    "MessageClassification": "Quality Audits",
     "Prompt": "Prompt",
     "PromptEffectiveness": "Prompt",
 }
@@ -1105,6 +1109,28 @@ def _status_hybrid_summary(items: dict) -> tuple:
     return SectionStatus.HEALTHY, ""
 
 
+def _status_sentiment(items: dict) -> tuple:
+    """Traffic light for the observation-only sentiment record."""
+    status = items.get("Status")
+    if status == "ok":
+        return SectionStatus.HEALTHY, ""
+    if status in (None, "", "disabled"):
+        return SectionStatus.WARNING, "Classifier disabled"
+    return SectionStatus.WARNING, "Classifier unavailable"
+
+
+def _status_message_classification(items: dict) -> tuple:
+    """Traffic light for the shadow vote; disagreement is informational."""
+    status = items.get("Status")
+    if status == "ok" and items.get("Agrees With Rules") == "No":
+        return SectionStatus.WARNING, "Shadow vote disagrees with rules"
+    if status == "ok":
+        return SectionStatus.HEALTHY, ""
+    if status in (None, "", "disabled"):
+        return SectionStatus.WARNING, "Classifier disabled"
+    return SectionStatus.WARNING, "Classifier unavailable"
+
+
 def _status_prompt(items: Any) -> tuple:
     if isinstance(items, str) and len(items) > 8000:
         return SectionStatus.WARNING, "Very large prompt"
@@ -1142,6 +1168,8 @@ _SECTION_STATUS_RULES: Dict[str, Any] = {
     "ConversationMove": _status_conversation_move,
     "ChecklistReasoning": _status_checklist,
     "ConversationMetrics": _status_conversation_metrics,
+    "SentimentAnalysis": _status_sentiment,
+    "MessageClassification": _status_message_classification,
     "QuestionFamilies": _status_question_families,
     "HybridExtraction": _status_hybrid_extraction,
     "SemanticComplexity": _status_semantic_complexity,

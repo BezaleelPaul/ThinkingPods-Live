@@ -130,14 +130,16 @@ class StateField(str, Enum):
 # Isolated here so the validator and the applier share a single source of
 # truth; adding a new list/scalar field only requires updating these sets
 # (and StateField itself).
-LIST_FIELDS: frozenset[StateField] = frozenset({
-    StateField.PERSONAS,
-    StateField.PROBLEMS,
-    StateField.CURRENT_SOLUTIONS,
-    StateField.PAIN_POINTS,
-    StateField.EVIDENCE,
-    StateField.IMPACTS,
-})
+LIST_FIELDS: frozenset[StateField] = frozenset(
+    {
+        StateField.PERSONAS,
+        StateField.PROBLEMS,
+        StateField.CURRENT_SOLUTIONS,
+        StateField.PAIN_POINTS,
+        StateField.EVIDENCE,
+        StateField.IMPACTS,
+    }
+)
 SCALAR_FIELDS: frozenset[StateField] = frozenset({StateField.FREQUENCY})
 
 # Which fields gate Empathize completion (WRAP_UP / objective selection).
@@ -393,9 +395,7 @@ class ExtractionValidator:
 
         raw_field = item["field"]
         if not isinstance(raw_field, str):
-            raise ExtractionValidationError(
-                f"updates[{index}].field must be a string"
-            )
+            raise ExtractionValidationError(f"updates[{index}].field must be a string")
         if raw_field not in ExtractionValidator._VALID_FIELDS:
             raise ExtractionValidationError(
                 f"updates[{index}]: invalid field '{raw_field}'. "
@@ -406,13 +406,19 @@ class ExtractionValidator:
         # ADD is valid only for list-typed fields; SET is valid only for
         # scalar-typed fields. Rejecting here keeps invalid proposals out
         # of the pipeline so the applier never sees a malformed update.
-        if raw_op == Operation.ADD.value and raw_field not in ExtractionValidator._LIST_FIELD_VALUES:
+        if (
+            raw_op == Operation.ADD.value
+            and raw_field not in ExtractionValidator._LIST_FIELD_VALUES
+        ):
             raise ExtractionValidationError(
                 f"updates[{index}]: ADD is only valid for list fields "
                 f"{sorted(ExtractionValidator._LIST_FIELD_VALUES)}; "
                 f"got '{raw_field}'"
             )
-        if raw_op == Operation.SET.value and raw_field not in ExtractionValidator._SCALAR_FIELD_VALUES:
+        if (
+            raw_op == Operation.SET.value
+            and raw_field not in ExtractionValidator._SCALAR_FIELD_VALUES
+        ):
             raise ExtractionValidationError(
                 f"updates[{index}]: SET is only valid for scalar fields "
                 f"{sorted(ExtractionValidator._SCALAR_FIELD_VALUES)}; "
@@ -425,9 +431,7 @@ class ExtractionValidator:
                 f"updates[{index}].value must be a string, got {type(raw_value).__name__}"
             )
         if not raw_value.strip():
-            raise ExtractionValidationError(
-                f"updates[{index}].value must not be empty"
-            )
+            raise ExtractionValidationError(f"updates[{index}].value must not be empty")
 
         # Optional rule-strength confidence. Absent -> 1.0 (the LLM path has
         # no rule signal; only the rule-based extractor attaches real scores).
@@ -1240,6 +1244,12 @@ def _extract_json(text: str) -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 
 
+_GREETING_PATTERN = re.compile(
+    r"^(hi|hello|hey|greetings|howdy|yo|good\s+(morning|afternoon|evening)|hi\s+there|hello\s+there)[!.,\s]*$",
+    re.IGNORECASE,
+)
+
+
 class MemoryExtractor:
     """
     Semantic understanding component of the Empathize v2 pipeline.
@@ -1277,10 +1287,13 @@ class MemoryExtractor:
 
     # Ollama generation options — tuned for deterministic JSON output
     _GENERATION_OPTIONS: dict[str, Any] = {
-        "temperature": 0.0,   # deterministic: no creativity needed for extraction
+        "temperature": 0.0,  # deterministic: no creativity needed for extraction
         "top_p": 1.0,
-        "num_predict": 300,   # enough for up to 6 updates + overhead
+        "num_predict": 120,  # concise JSON extraction (average output is 30-70 tokens)
         "repeat_penalty": 1.0,
+        # Measured rendered extraction prompt: ~3.5K chars ≈ 700 tokens.
+        # With num_predict=120, total context comfortably fits within 1024.
+        "num_ctx": int(os.getenv("LLM_NUM_CTX", "1024")),
     }
 
     def __init__(self, model_name: str) -> None:
@@ -1292,6 +1305,13 @@ class MemoryExtractor:
             The extractor is model-agnostic — swap freely without code changes.
         """
         self.model_name = model_name
+        # Reply cache anchor (observation-only capture): the exact prompt and
+        # raw model output of the most recent successful extract() call. Used
+        # by mentor._generate_reply under REPLY_CACHE_ANCHOR to prepend the
+        # extraction exchange to the reply request so Ollama's KV prefix cache
+        # survives the extraction/reply alternation. Never serialized.
+        self._last_prompt: str | None = None
+        self._last_raw_output: str | None = None
 
     # ------------------------------------------------------------------
     # Public interface
@@ -1334,10 +1354,16 @@ class MemoryExtractor:
             Always returns a valid result. Falls back to AMBIGUOUS on failure.
         """
         _pre = time.perf_counter() if _timing is not None else None
-        if not user_message or not user_message.strip():
+        cleaned_msg = (user_message or "").strip()
+        if not cleaned_msg:
             if _pre is not None:
                 add_stage_ms(_timing, "preprocess", _pre, time.perf_counter())
             logger.debug("[MemoryExtractor] Empty user message → NO_UPDATE")
+            return ExtractionResult(message_type=MessageType.NO_UPDATE, updates=[])
+        if _GREETING_PATTERN.match(cleaned_msg):
+            if _pre is not None:
+                add_stage_ms(_timing, "preprocess", _pre, time.perf_counter())
+            logger.debug("[MemoryExtractor] Greeting user message → NO_UPDATE")
             return ExtractionResult(message_type=MessageType.NO_UPDATE, updates=[])
         if _pre is not None:
             add_stage_ms(_timing, "preprocess", _pre, time.perf_counter())
@@ -1345,11 +1371,14 @@ class MemoryExtractor:
         prompt = self._build_prompt(
             user_message, project_state, previous_assistant_message, _timing=_timing
         )
+        self._last_prompt = prompt
+        self._last_raw_output = None
 
         raw_output = self._call_model(prompt, _timing=_timing, _prof=_prof)
         if raw_output is None:
             logger.warning("[MemoryExtractor] Model call failed → AMBIGUOUS fallback")
             return ExtractionValidator.safe_fallback()
+        self._last_raw_output = raw_output
 
         return self._parse_and_validate(raw_output, _timing=_timing)
 
@@ -1430,7 +1459,9 @@ class MemoryExtractor:
             add_stage_ms(_timing, "llm_prompt", _t, time.perf_counter())
         return self._EXTRACTOR_STATIC + state_str + returned_tail
 
-    def _call_model(self, prompt: str, _timing: dict[str, float] | None = None, _prof=None) -> str | None:
+    def _call_model(
+        self, prompt: str, _timing: dict[str, float] | None = None, _prof=None
+    ) -> str | None:
         """
         Call the Ollama model and return raw text output.
 
@@ -1440,7 +1471,9 @@ class MemoryExtractor:
         """
         _t = time.perf_counter() if _timing is not None else None
         try:
-            from timing import timed_ollama_chat  # local import: keeps module import-light
+            from timing import (
+                timed_ollama_chat,
+            )  # local import: keeps module import-light
 
             response = timed_ollama_chat(
                 _prof,
@@ -1460,7 +1493,9 @@ class MemoryExtractor:
             if _t is not None:
                 add_stage_ms(_timing, "llm_api", _t, time.perf_counter())
 
-    def _parse_and_validate(self, raw_output: str, _timing: dict[str, float] | None = None) -> ExtractionResult:
+    def _parse_and_validate(
+        self, raw_output: str, _timing: dict[str, float] | None = None
+    ) -> ExtractionResult:
         """
         Strip model artefacts, extract JSON, validate, and return a typed result.
 
@@ -1509,7 +1544,9 @@ def resolve_extractor_model() -> str:
     Priority:
     1. EXTRACTOR_MODEL env var (explicit override)
     2. MENTOR_MODEL env var (project-wide model)
-    3. "qwen2.5:3b" (default)
+    3. OLLAMA_MODEL env var (configured active Ollama model)
+    4. "optimized-pods" (tuned local model)
+    5. "qwen2.5:3b" (fallback)
 
     Availability is NOT checked here — Ollama will surface an error at
     call time if the model is missing, which the extractor catches gracefully.
@@ -1517,5 +1554,6 @@ def resolve_extractor_model() -> str:
     return (
         os.getenv("EXTRACTOR_MODEL")
         or os.getenv("MENTOR_MODEL")
-        or "qwen2.5:3b"
+        or os.getenv("OLLAMA_MODEL")
+        or "optimized-pods"
     )

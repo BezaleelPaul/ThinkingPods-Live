@@ -34,13 +34,15 @@ __all__ = ["decide_hybrid_extraction", "rule_update_dicts"]
 def _objective_context(session_data) -> ObjectiveContext:
     """Read-only conversation context matching ``mentor._determine_objective``
     so the decision sees the same objective the pipeline would."""
+    if session_data is None:
+        return ObjectiveContext()
     return ObjectiveContext(
         user_messages=tuple(
             m.get("content", "")
-            for m in session_data.conversation_history
+            for m in (getattr(session_data, "conversation_history", None) or [])
             if m.get("role") == "user"
         ),
-        asked_families=frozenset(session_data.asked_question_families),
+        asked_families=frozenset(getattr(session_data, "asked_question_families", None) or []),
     )
 
 
@@ -99,6 +101,22 @@ def decide_hybrid_extraction(
     target = current.targeted_field()
 
     complexity_record = classify_complexity(user_message, rule_observation)
+
+    from memory_extractor import _GREETING_PATTERN
+
+    if user_message and _GREETING_PATTERN.match(user_message.strip()):
+        return {
+            "rule_output": [],
+            "objective": current.objective.value,
+            "objective_field": target.value if target else None,
+            "satisfied": False,
+            "llm_invoked": False,
+            "complexity": "LOW",
+            "complexity_reason": "Greeting message with no project-state facts",
+            "complexity_decision": "SKIP_LLM",
+            "gate_enabled": gate_enabled,
+            "reason": "Greeting turn; skipped LLM extraction.",
+        }
 
     if target is None:
         # No active field objective (e.g. WRAP_UP / transition). There is

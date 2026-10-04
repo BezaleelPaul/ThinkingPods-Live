@@ -16,18 +16,40 @@ if not defined PYTHON if exist "%~dp0.venv\Scripts\python.exe" (
 if not defined PYTHON if exist "%~dp0venv\Scripts\python.exe" (
     set "PYTHON=%~dp0venv\Scripts\python.exe"
 )
+if not defined PYTHON if exist "C:\Users\bezal\AppData\Local\Programs\Python\Python312\python.exe" (
+    set "PYTHON=C:\Users\bezal\AppData\Local\Programs\Python\Python312\python.exe"
+)
 if not defined PYTHON (
     set "PYTHON=python"
 )
 
 rem --- LLM Model Configuration ---
-rem Single model for both mentor and extraction.
-set MENTOR_MODEL=qwen2.5:3b
+rem autotweak builds optimized-pods from OLLAMA_BASE_MODEL.
+rem MENTOR_MODEL targets the optimized profile with automatic fallback.
+set OLLAMA_BASE_MODEL=qwen2.5:3b
+set MENTOR_MODEL=optimized-pods
+set LLM_NUM_CTX=1024
+set REPLY_CACHE_ANCHOR=false
+set FAST_SHORT_REPLIES=true
+set DYNAMIC_SHORT_PHRASING=true
+set FAST_SHORT_REPLIES_MAX_WORDS=30
+set COMPLEXITY_GATE=false
+set MENTOR_USE_LLM_EXTRACTION=false
 
 rem --- Voice Transcription (STT) Model Configuration ---
 rem Options: tiny.en, base.en (default), small.en (recommended for better accuracy), medium.en
 rem Note: larger models take more RAM and CPU but have much better accuracy.
 set WHISPER_MODEL=tiny.en
+
+rem --- Hardware Acceleration ---
+rem Enable Vulkan execution for Intel HD / iGPU offloading if supported
+set OLLAMA_VULKAN=1
+
+rem --- Observation-only text classification (HuggingFace transformers) ---
+rem Default OFF; enabled here so the Developer Console shows Sentiment /
+rem Message Classification during demos. Tests run without this file.
+set SENTIMENT_ENABLED=true
+set CLASSIFIER_ENABLED=true
 
 echo Checking for existing processes on port 8000...
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8000 ^| findstr LISTENING') do (

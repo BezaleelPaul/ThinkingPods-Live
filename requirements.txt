@@ -7,6 +7,7 @@ faster-whisper
 audio-recorder-streamlit
 torch
 torchaudio
+transformers
 scipy
 numpy
 python-multipart

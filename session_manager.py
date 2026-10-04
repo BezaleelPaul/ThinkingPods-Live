@@ -18,7 +18,7 @@ import os
 import shutil
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -262,7 +262,7 @@ def _write_active_session_id(session_id: str) -> None:
 
 def _generate_session_id() -> str:
     """Generate a unique session ID: 20260726T143215Z_8f3a7c"""
-    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     short_uuid = uuid.uuid4().hex[:6]
     return f"{timestamp}_{short_uuid}"
 
@@ -328,7 +328,7 @@ class SessionManager:
         # Write metadata
         metadata = SessionMetadata(
             session_id=session_id,
-            created_at=datetime.utcnow().isoformat() + "Z",
+            created_at=datetime.now(timezone.utc).isoformat(),
             status="active",
             phase=phase,
             project_title=project_title,
