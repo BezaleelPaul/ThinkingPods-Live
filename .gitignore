@@ -11,6 +11,8 @@ __pycache__/
 
 # Temporary / Log files
 *.txt
+!requirements.txt
+!packages.txt
 *.wav
 *.log
 sessions/
