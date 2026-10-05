@@ -12,7 +12,16 @@ from constants import MERMAID_KEYWORDS
 from session_lifecycle import SessionLifecycle
 
 # --- Backend Configuration ---
-BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
+DEFAULT_BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
+
+def get_backend_url():
+    """Retrieve active backend URL from session state or environment."""
+    val = st.session_state.get("backend_url_input") if hasattr(st, "session_state") else None
+    if val and val.strip():
+        return val.strip().rstrip("/")
+    return os.getenv("BACKEND_URL", DEFAULT_BACKEND_URL).rstrip("/")
+
+BACKEND_URL = DEFAULT_BACKEND_URL
 
 # --- Developer Console (collapsible VS Code-style right-side inspector) ---
 # All console logic lives in developer_console.py (pure, unit-tested). This
@@ -1533,7 +1542,7 @@ if "session_binding_initialized" not in st.session_state:
         project_name=st.session_state.get("project_name", "MyProject"),
     )
     try:
-        start_resp = requests.post(f"{BACKEND_URL}/session/start", json={
+        start_resp = requests.post(f"{get_backend_url()}/session/start", json={
             "mode": decision.backend_mode,
             "username": "User",
             "project_name": st.session_state.get("project_name", "MyProject"),
@@ -1569,7 +1578,7 @@ def call_backend_text(text, phase, doc_ctx="", username="User"):
             "interaction_mode": st.session_state.get("interaction_mode", "Design Thinking Coach"),
             "enable_voice": st.session_state.get("enable_voice", False)
         }
-        response = requests.post(f"{BACKEND_URL}/text", json=payload)
+        response = requests.post(f"{get_backend_url()}/text", json=payload)
 
         if response.status_code == 200:
             reply = urllib.parse.unquote(response.headers.get("X-Reply", ""))
@@ -1597,7 +1606,7 @@ def call_backend_voice(audio_bytes, phase, doc_ctx="", username="User"):
             "X-Interaction-Mode": st.session_state.get("interaction_mode", "Design Thinking Coach"),
             "X-Enable-Voice": str(st.session_state.get("enable_voice", True))
         }
-        response = requests.post(f"{BACKEND_URL}/voice", data=audio_bytes, headers=headers)
+        response = requests.post(f"{get_backend_url()}/voice", data=audio_bytes, headers=headers)
 
         if response.status_code == 200:
             transcript = urllib.parse.unquote(response.headers.get("X-Transcript", ""))
@@ -1619,7 +1628,7 @@ def call_backend_voice(audio_bytes, phase, doc_ctx="", username="User"):
 def call_backend_reqgpt(prompt):
     try:
         payload = {"prompt": prompt}
-        response = requests.post(f"{BACKEND_URL}/generate_requirements", json=payload)
+        response = requests.post(f"{get_backend_url()}/generate_requirements", json=payload)
         if response.status_code == 200:
             return response.json().get("requirement", "")
         else:
@@ -1630,7 +1639,7 @@ def call_backend_reqgpt(prompt):
 def call_backend_visualize(username="User", doc_ctx=""):
     try:
         payload = {"username": username, "context_doc": doc_ctx}
-        response = requests.post(f"{BACKEND_URL}/visualize", json=payload)
+        response = requests.post(f"{get_backend_url()}/visualize", json=payload)
         if response.status_code == 200:
             return response.text
         else:
@@ -1650,13 +1659,14 @@ def render_mermaid(code):
     if not any(k in code for k in MERMAID_KEYWORDS):
         return # Not mermaid code
 
+    backend_url = get_backend_url()
     html_code = f"""
     <div id="mermaid-container" style="background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px;">
         <pre class="mermaid" style="display: flex; justify-content: center;">
             {code}
         </pre>
     </div>
-    <script src="http://127.0.0.1:8000/static/mermaid.min.js"></script>
+    <script src="{backend_url}/static/mermaid.min.js"></script>
     <script type="module">
         let m = window.mermaid;
         if (!m) {{
@@ -1703,7 +1713,7 @@ def format_prd():
     assumptions = []
     open_questions = []
     try:
-        res = requests.post(f"{BACKEND_URL}/session/status", json={
+        res = requests.post(f"{get_backend_url()}/session/status", json={
             "username": "User",
             "project_name": project_name
         }, timeout=3)
@@ -1826,7 +1836,7 @@ with st.sidebar:
     # New Session button at the very top of the sidebar — always visible without scrolling
     if st.button("🆕 New Session", use_container_width=True):
         try:
-            resp = requests.post(f"{BACKEND_URL}/session/new", json={
+            resp = requests.post(f"{get_backend_url()}/session/new", json={
                 "username": "User",
                 "project_name": st.session_state.get("project_name", "MyProject")
             })
@@ -1844,6 +1854,30 @@ with st.sidebar:
         st.session_state.messages = [{"role": "assistant", "content": "Hello! I'm your Design Thinking Mentor. I'll guide you through the Empathize stage by asking thoughtful questions — not giving answers. What project or idea would you like to explore today?"}]
         st.session_state.dt_phase = "Empathize"
         st.rerun()
+
+    # Cloud / Backend Connection setting for Streamlit Community Cloud
+    with st.expander("🌐 Cloud / Backend Connection", expanded=False):
+        current_backend = get_backend_url()
+        user_backend = st.text_input(
+            "Backend API URL:",
+            value=st.session_state.get("backend_url_input", current_backend),
+            help="For Streamlit Community Cloud, enter your public backend URL (e.g. from Cloudflare Tunnel or Colab)."
+        )
+        if user_backend != st.session_state.get("backend_url_input"):
+            st.session_state.backend_url_input = user_backend.strip().rstrip("/")
+            st.rerun()
+
+        # Quick live health probe
+        active_url = get_backend_url()
+        try:
+            h_probe = requests.get(f"{active_url}/health", timeout=3)
+            if h_probe.status_code == 200:
+                st.caption(f"🟢 **Backend Connected:** `{active_url}`")
+            else:
+                st.caption(f"🟡 **Backend Status {h_probe.status_code}:** `{active_url}`")
+        except Exception:
+            st.caption(f"🔴 **Backend Unreachable:** `{active_url}`")
+            st.info("💡 **On Streamlit Cloud?** Run `run_public_tunnel.bat` or Google Colab to get a free public HTTPS URL, then paste it above.")
 
     st.divider()
     st.header("💾 Mission Memory")
@@ -1884,7 +1918,7 @@ with st.sidebar:
         st.subheader("📋 Empathize Checklist")
         # Fetch status from backend
         try:
-            status_res = requests.post(f"{BACKEND_URL}/session/status", json={
+            status_res = requests.post(f"{get_backend_url()}/session/status", json={
                 "username": "User",
                 "project_name": st.session_state.get("project_name", "MyProject")
             })
@@ -2047,7 +2081,7 @@ with st.sidebar:
     st.divider()
     if st.button("🗑️ Clear Mission / Start Over"):
         try:
-            requests.post(f"{BACKEND_URL}/reset", json={
+            requests.post(f"{get_backend_url()}/reset", json={
                 "username": "User",
                 "project_name": st.session_state.get("project_name", "MyProject")
             })
