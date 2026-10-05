@@ -1,6 +1,6 @@
 # ReqGPT / ThinkingPods — AI Design Thinking Assistant
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/BezaleelPaul/ThinkingPods-Live/blob/main/ThinkingPods_Cloud.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/BezaleelPaul/ThinkingPods/blob/main/ThinkingPods_Cloud.ipynb)
 [![Live Web App](https://img.shields.io/badge/Live_App-GitHub_Pages-blue?logo=github)](https://bezaleelpaul.github.io/ThinkingPods-Live/)
 
 An offline-first, local AI assistant for Design Thinking sessions (Empathize, Discovery, and Coaching).
@@ -126,19 +126,19 @@ pytest tests
 
 ## 🌐 Free Deployment Options
 
-ReqGPT requires running local AI models (Ollama LLM, faster-whisper STT, and Silero TTS), which require at least 2–4 GB RAM. Here are the two **100% free** ways to deploy and share it:
+ReqGPT requires running local AI models (Ollama LLM, faster-whisper STT, and Silero TTS), which require 2–4 GB RAM. Here are the **100% free** ways to deploy and share it:
 
-### Method 1: Instant Free Public Link (Zero Cost, No Account Needed)
-Use the included 1-click Cloudflare Tunnel script to generate a secure, temporary `https://....trycloudflare.com` URL pointing directly to your running instance:
+### Method 1: Google Colab GPU Backend + Streamlit Cloud Frontend (Recommended)
+Run the AI backend on **Google Colab's free 12.7 GB RAM & GPU** and the frontend on **Streamlit Community Cloud**:
+1. Click the **[Open in Colab](https://colab.research.google.com/github/BezaleelPaul/ThinkingPods/blob/main/ThinkingPods_Cloud.ipynb)** badge at the top of the repository.
+2. In Google Colab, click **Runtime ➡️ Run all**.
+3. It will provision Ollama (`llama3.2:1b`), start the FastAPI backend, and output a public HTTPS URL (e.g. `https://xyz.trycloudflare.com`).
+4. In your Streamlit app (hosted on Streamlit Community Cloud or local `http://localhost:8501`), open the sidebar expander **🌐 Cloud / Backend Connection**, paste the Cloudflare URL, and start chatting!
+
+### Method 2: Instant Free Public Link (Local Backend + Tunnel)
+Use the included 1-click Cloudflare Tunnel script to generate a secure, temporary `https://....trycloudflare.com` URL pointing directly to your running local instance:
 1. Start the system: `run.bat`
 2. In a separate window, run: `run_public_tunnel.bat`
 3. Copy the generated `https://....trycloudflare.com` link and open it on your phone or share it with anyone.
-
-### Method 2: 1-Click Google Cloud Hosting (100% Free · 12.7 GB RAM & GPU)
-Run ThinkingPods entirely on Google Cloud without using your personal computer's CPU or memory:
-1. Click the **[Open in Colab](https://colab.research.google.com/github/BezaleelPaul/ThinkingPods-Live/blob/main/ThinkingPods_Cloud.ipynb)** badge at the top of the repository.
-2. In Google Colab, click **Runtime ➡️ Run all**.
-3. It will provision Google's high-speed cloud environment, start Ollama, boot the FastAPI backend and Streamlit UI, and output a live `https://....trycloudflare.com` link.
-4. Your computer usage is 0%, and it runs on Google's free 12.7 GB RAM and NVIDIA GPU.
 
 
