@@ -101,8 +101,13 @@ class RuleBasedExtractor:
             CONFIDENCE_HIGH,
         ),
         (
-            r"\b(college students|students|university students)\b",
+            r"\b(college students?|university students?|students?|student life|bio students?|medical students?)\b",
             "college students",
+            CONFIDENCE_HIGH,
+        ),
+        (
+            r"\b(people with (?:a )?lot of stress|stressed (?:people|students|individuals))\b",
+            "stressed individuals",
             CONFIDENCE_HIGH,
         ),
         (
@@ -134,6 +139,31 @@ class RuleBasedExtractor:
             CONFIDENCE_HIGH,
         ),
         (
+            r"\b(?:ai|technology|automation|machines?|bots?)\s+(?:is\s+)?replacing\s+(?:humans?|people|jobs?|workers?|roles?)\b",
+            "AI replacing human jobs",
+            CONFIDENCE_HIGH,
+        ),
+        (
+            r"\b(?:replac(?:e|es|ed|ing)\s+(?:humans?|people|jobs?|workers?))\b",
+            "replacing humans and jobs",
+            CONFIDENCE_HIGH,
+        ),
+        (
+            r"\b(?:dont|do not|can't|cannot)\s+end up with\s+(?:a\s+)?jobs?\b",
+            "unable to find or keep a job",
+            CONFIDENCE_HIGH,
+        ),
+        (
+            r"\b(unemployment|joblessness|loss of jobs?|lack of jobs?|no jobs?)\b",
+            "unemployment and lack of jobs",
+            CONFIDENCE_HIGH,
+        ),
+        (
+            r"\b(begging|poverty|financial crisis|cannot afford)\b",
+            lambda m: m.group(0),
+            CONFIDENCE_HIGH,
+        ),
+        (
             r"\b(struggle|struggling|problem|issue|challenge|pain point)\b.{0,40}",
             lambda m: m.group(0)[:80],
             CONFIDENCE_MEDIUM,
@@ -149,7 +179,8 @@ class RuleBasedExtractor:
     FAILURE_VERBS = (
         r"waste(?:s|d|ing)?|skip(?:s|ped|ping)?|miss(?:es|ed|ing)?|fail(?:s|ed|ing)?|"
         r"forget(?:s|got|ting)?|los(?:e|es|t|ing)|delay(?:s|ed|ing)?|"
-        r"struggl(?:e|es|ed|ing)|overlook(?:s|ed|ing)?|ignor(?:e|es|ed|ing)"
+        r"struggl(?:e|es|ed|ing)|overlook(?:s|ed|ing)?|ignor(?:e|es|ed|ing)|"
+        r"replac(?:e|es|ed|ing)|lack(?:s|ed|ing)?"
     )
     _PROBLEM_CLAUSE = re.compile(rf"\b(?:{FAILURE_VERBS})\b")
     _META_CLAUSE = re.compile(r"^(?:forget|ignore|scratch|never mind)\b")

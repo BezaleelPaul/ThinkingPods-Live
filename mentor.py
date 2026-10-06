@@ -474,16 +474,16 @@ def _message_satisfies_field(
             return True
 
     elif field is StateField.PERSONAS:
-        # Personas: explicit who statements
+        # Personas: explicit who statements or audience groups
         if re.search(
-            r"\b(who|audience|users?|people|personas|target|demographic)\b", lowered
+            r"\b(who|audience|users?|people|personas|target|demographic|students?|children|kids|patients|elderly|workers?|professionals?)\b", lowered
         ):
             return True
 
     elif field is StateField.PROBLEMS:
-        # Problems: explicit problem keywords
+        # Problems: explicit problem keywords or problem expressions
         if re.search(
-            r"\b(problem|issue|challenge|forget|miss|struggle|difficult|trouble)\b",
+            r"\b(problem|issue|challenge|forget|miss|struggle|difficult|trouble|replace|replacing|loss|lose|lack|job|unemployment|begging|stress|frustrat|burden|overwork|worry|fail|failing|harm|suffer|crisis|poverty)\b",
             lowered,
         ):
             return True
