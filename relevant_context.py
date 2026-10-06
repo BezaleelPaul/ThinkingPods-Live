@@ -128,7 +128,25 @@ def build_relevant_context(
         if len(snippets) >= MAX_SNIPPETS:
             return snippets
 
-    # 3. Uncertainty on the just-shared answer.
+    # 3. Immediately preceding exchange, verbatim (raw wording preserved).
+    recent_user = None
+    for m in reversed(_history_turns(conversation_history, limit=4)):
+        if m.get("role") == "user" and (m.get("content") or "").strip():
+            recent_user = m["content"]
+            break
+    if recent_user:
+        snippets.append({"tag": "YOU SAID", "text": _clip(recent_user, 280)})
+        if len(snippets) >= MAX_SNIPPETS:
+            return snippets
+
+    if last_assistant_message and last_assistant_message.strip():
+        snippets.append(
+            {"tag": "I ASKED", "text": _clip(last_assistant_message, 200)}
+        )
+        if len(snippets) >= MAX_SNIPPETS:
+            return snippets
+
+    # 4. Uncertainty on the just-shared answer.
     if uncertainty:
         snippets.append(
             {
@@ -140,7 +158,7 @@ def build_relevant_context(
         if len(snippets) >= MAX_SNIPPETS:
             return snippets
 
-    # 4/5. Open threads + deferred topics (excluding the current target and
+    # 5. Open threads + deferred topics (excluding the current target and
     # fields already covered above). Memory holds keys+reasons only; attach
     # the live value from state so the model sees user wording, not labels.
     if memory is not None:
@@ -183,23 +201,6 @@ def build_relevant_context(
         if why_now:
             need += f" {_clip(why_now, 140)}"
         snippets.append({"tag": "NEED", "text": need})
-        if len(snippets) >= MAX_SNIPPETS:
-            return snippets
-
-    # 7. Immediately preceding exchange, verbatim (raw wording preserved).
-    if last_assistant_message and last_assistant_message.strip():
-        snippets.append(
-            {"tag": "I ASKED", "text": _clip(last_assistant_message, 200)}
-        )
-        if len(snippets) >= MAX_SNIPPETS:
-            return snippets
-    recent_user = None
-    for m in reversed(_history_turns(conversation_history, limit=4)):
-        if m.get("role") == "user" and (m.get("content") or "").strip():
-            recent_user = m["content"]
-            break
-    if recent_user:
-        snippets.append({"tag": "YOU SAID", "text": _clip(recent_user, 280)})
         if len(snippets) >= MAX_SNIPPETS:
             return snippets
 

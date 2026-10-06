@@ -21,6 +21,8 @@ __all__ = [
     "_apply_extraction_to_state",
 ]
 
+import os
+
 from memory_extractor import ExtractionResult, MessageType, ProjectState
 from state_manager import StateManager, StateBatchValidationError
 from module3 import (
@@ -186,9 +188,10 @@ def enforce_mentor_reply(reply, fallback, allow_summary=False, allow_statement=F
         first_question_end = text.find("?")
         text = text[: first_question_end + 1].strip()
 
-    if not allow_summary and len(text.split()) > 55:
+    max_words = int(os.getenv("MENTOR_MAX_REPLY_WORDS", "55"))
+    if not allow_summary and len(text.split()) > max_words:
         return _blocked("too_long")
-    if allow_summary and len(text.split()) > 95:
+    if allow_summary and len(text.split()) > max(95, max_words):
         return _blocked("too_long")
 
     return _passed(text)

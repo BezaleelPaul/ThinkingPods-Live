@@ -202,7 +202,8 @@ def build_dynamic_prompt(
             + ", ".join(asked_family_labels) + "."
         )
     move_lines.append(
-        "Choose the move that fits best; prefer ending with one useful "
+        "Choose the move that fits best; briefly acknowledge what the user "
+        "shared in your own words, and prefer ending with one useful "
         "question unless a pure acknowledgment fits the moment better."
     )
 

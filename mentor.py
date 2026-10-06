@@ -642,8 +642,10 @@ def _safety_intercept(user_message, model_name, project_name):
 
 
 def process_mentor_turn(
-    user_message, username="User", project_name="MyProject", model_name="llama3.2:1b"
+    user_message, username="User", project_name="MyProject", model_name=None
 ):
+    if not model_name:
+        model_name = os.getenv("MENTOR_MODEL") or os.getenv("OLLAMA_MODEL") or "llama3.2:1b"
     storage_project_name = project_name or "MyProject"
 
     # Phase 1.5 latency audit: one TurnProfiler per turn. Observation-only
@@ -2562,8 +2564,8 @@ def _generate_reply(
                     "temperature": 0.4,
                     "top_p": 0.85,
                     # Mentor replies are short single questions (enforce_mentor_reply
-                    # caps them at 55 words) — 80 tokens is ample headroom.
-                    "num_predict": 80,
+                    # caps them at 65 words) — 100 tokens is ample headroom.
+                    "num_predict": int(os.getenv("LLM_NUM_PREDICT", "100")),
                     "num_ctx": LLM_NUM_CTX,
                 },
                 gated=False,  # the response call always runs (fallback on error)
