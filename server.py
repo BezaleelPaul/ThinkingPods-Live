@@ -74,9 +74,8 @@ def _detect_system_limits():
 _OPTIMAL_THREADS, _SYSTEM_RAM = _detect_system_limits()
 
 # Context window for every ollama.chat() call:
-# On RAM-constrained machines (<8GB RAM), 1024 prevents KV cache memory blowup;
-# otherwise 2048/4096 gives full headroom.
-LLM_NUM_CTX = int(os.getenv("LLM_NUM_CTX", "1024" if _SYSTEM_RAM < 8.0 else "2048"))
+# 2048 tokens provides ample headroom without truncating prompt/context.
+LLM_NUM_CTX = int(os.getenv("LLM_NUM_CTX", "2048"))
 
 # Conversation history per user (username -> SemanticHistoryRetriever)
 conversation_histories = defaultdict(

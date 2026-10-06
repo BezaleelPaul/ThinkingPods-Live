@@ -208,8 +208,8 @@ from extraction_pipeline import strip_model_output  # noqa: F401
 from conversation_pipeline import build_deterministic_fallback  # noqa: F401
 
 # Context window for the mentor response call (mirrors server.LLM_NUM_CTX).
-# 1024 tokens matches autotweak profile and saves massive KV memory on CPU.
-LLM_NUM_CTX = int(os.getenv("LLM_NUM_CTX", "1024"))
+# 2048 tokens provides ample headroom for system prompt, state, relevant context, and user input.
+LLM_NUM_CTX = int(os.getenv("LLM_NUM_CTX", "2048"))
 
 # Reply KV-cache anchor (default off on CPU inference to prevent 10x prefill slowdown).
 REPLY_CACHE_ANCHOR = os.getenv("REPLY_CACHE_ANCHOR", "false").lower() == "true"

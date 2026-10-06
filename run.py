@@ -15,7 +15,7 @@ else:
 # Set Optimized Hardware & Pipeline Defaults
 os.environ.setdefault("OLLAMA_BASE_MODEL", "qwen2.5:3b")
 os.environ.setdefault("MENTOR_MODEL", "optimized-pods")
-os.environ.setdefault("LLM_NUM_CTX", "1024")
+os.environ.setdefault("LLM_NUM_CTX", "2048")
 os.environ.setdefault("REPLY_CACHE_ANCHOR", "false")
 os.environ.setdefault("FAST_SHORT_REPLIES", "false")
 os.environ.setdefault("DYNAMIC_SHORT_PHRASING", "false")

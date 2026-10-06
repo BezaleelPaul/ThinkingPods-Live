@@ -28,7 +28,7 @@ rem autotweak builds optimized-pods from OLLAMA_BASE_MODEL.
 rem MENTOR_MODEL targets the optimized profile with automatic fallback.
 set OLLAMA_BASE_MODEL=qwen2.5:3b
 set MENTOR_MODEL=optimized-pods
-set LLM_NUM_CTX=1024
+set LLM_NUM_CTX=2048
 set REPLY_CACHE_ANCHOR=false
 set FAST_SHORT_REPLIES=false
 set DYNAMIC_SHORT_PHRASING=false

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 export OLLAMA_BASE_MODEL="qwen2.5:3b"
 export MENTOR_MODEL="optimized-pods"
-export LLM_NUM_CTX="1024"
+export LLM_NUM_CTX="2048"
 export REPLY_CACHE_ANCHOR="false"
 export FAST_SHORT_REPLIES="false"
 export DYNAMIC_SHORT_PHRASING="false"
