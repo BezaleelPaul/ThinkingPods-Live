@@ -2508,34 +2508,7 @@ def _generate_reply(
         return f"Hello! Let's continue with your project. {fallback_reply}"
 
     reply = fallback_reply
-    user_words = (user_message or "").strip().split()
-    fast_short_enabled = os.getenv("FAST_SHORT_REPLIES", "false").lower() == "true"
-    dynamic_phrasing_enabled = os.getenv("DYNAMIC_SHORT_PHRASING", "false").lower() == "true"
-    max_fast_words = int(os.getenv("FAST_SHORT_REPLIES_MAX_WORDS", "30"))
-    skip_llm_call = (
-        fast_short_enabled
-        and len(user_words) <= max_fast_words
-        and not dt_paused
-        and fallback_reply
-    )
-    if (
-        skip_llm_call
-        and dynamic_phrasing_enabled
-        and response_strategy is not ResponseStrategy.GENERATE_SUMMARY
-        and ". " in fallback_reply
-    ):
-        _SHORT_LEAD_INS = [
-            "Got it.",
-            "That makes a lot of sense.",
-            "Understood.",
-            "Thanks for clarifying that.",
-            "Good, that's helpful context.",
-            "That's very clear.",
-        ]
-        history = getattr(session_data, "conversation_history", []) if session_data else []
-        turn_idx = len(history)
-        lead_in = _SHORT_LEAD_INS[turn_idx % len(_SHORT_LEAD_INS)]
-        reply = f"{lead_in} {fallback_reply.split('. ', 1)[1]}"
+    skip_llm_call = False
 
     t_llm_start = time.perf_counter()
     if skip_llm_call:
