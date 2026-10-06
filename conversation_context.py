@@ -652,8 +652,8 @@ _TRANSITION_FRAMES: Tuple[Tuple[str, str], ...] = (
 _ADVICE_FRAMES: Tuple[Tuple[str, str], ...] = (
     ("what-should-i-do", r"\bwhat\s+(?:should|shall|would)\s+i\s+do\b"),
     ("what-do-i-do", r"\bwhat\s+do\s+i\s+do\b"),
-    ("what-topic-talking-about", r"\bwhat\s+(?:topic|project|problem|subject)\s+(?:were|are)\s+we\s+(?:talking|discussing|exploring)\b"),
-    ("what-were-we-talking-about", r"\bwhat\s+were\s+we\s+(?:talking|discussing|exploring)\s+about\b"),
+    ("what-topic-talking-about", r"\bwhat\s+(?:topic|project|problem|subject)?\s*(?:(?:were|are)\s+we|we\s+(?:were|are))\s+(?:talking|discussing|exploring)\b"),
+    ("what-were-we-talking-about", r"\bwhat\s+(?:(?:were|are)\s+we|we\s+(?:were|are))\s+(?:talking|discussing|exploring)\s+about\b"),
     ("how-do-i-solve/start/fix", r"\bhow\s+(?:do|can|should|would)\s+i\s+(?:solve|fix|start|proceed|approach|overcome|learn|handle)\b"),
     ("can-you-help", r"\bcan\s+you\s+(?:help|assist|suggest|advise)\b"),
     ("could-you-help", r"\bcould\s+you\s+(?:help|assist|suggest|advise)\b"),
