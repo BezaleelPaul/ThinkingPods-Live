@@ -1220,6 +1220,7 @@ def _extract_json(text: str) -> dict[str, Any] | None:
     Extract the first valid JSON object from arbitrary model output.
 
     Tries strict parse first, then scans for the outermost { } block.
+    If the output was truncated midway, attempts recovery by closing open arrays/objects.
     Returns None if no valid JSON object is found.
     """
     text = text.strip()
@@ -1235,6 +1236,19 @@ def _extract_json(text: str) -> dict[str, Any] | None:
             return json.loads(text[start : end + 1])
         except json.JSONDecodeError:
             pass
+
+    # Recovery: if text starts with '{' but was cut off midway through an updates list
+    if start != -1:
+        candidate = text[start:]
+        # If there's at least one completed update object ending with '}'
+        last_obj = candidate.rfind("}")
+        if last_obj != -1:
+            # Try closing the updates array and root object
+            for suffix in ("]}", "}\n]}"):
+                try:
+                    return json.loads(candidate[: last_obj + 1] + suffix)
+                except json.JSONDecodeError:
+                    pass
 
     return None
 
@@ -1289,11 +1303,9 @@ class MemoryExtractor:
     _GENERATION_OPTIONS: dict[str, Any] = {
         "temperature": 0.0,  # deterministic: no creativity needed for extraction
         "top_p": 1.0,
-        "num_predict": 120,  # concise JSON extraction (average output is 30-70 tokens)
+        "num_predict": int(os.getenv("EXTRACTOR_NUM_PREDICT", "256")),  # ample headroom to avoid JSON truncation
         "repeat_penalty": 1.0,
-        # Measured rendered extraction prompt: ~3.5K chars ≈ 700 tokens.
-        # With num_predict=120, total context comfortably fits within 1024.
-        "num_ctx": int(os.getenv("LLM_NUM_CTX", "1024")),
+        "num_ctx": int(os.getenv("LLM_NUM_CTX", "2048")),
     }
 
     def __init__(self, model_name: str) -> None:
